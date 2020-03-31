@@ -1,0 +1,281 @@
+---
+title: "Plot recovery indicators"
+author: "Wanda De Keersmaecker"
+date: ""
+output: rmarkdown::html_vignette
+vignette: >
+%\VignetteIndexEntry{Plot recovery indicators}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+  ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval= F)
+```
+# Load libraries
+```{r}
+library(UpscaleRecovery)
+library(ggplot2)
+library(raster)
+library(rasterVis)
+library(sp)
+library(maps)
+library(maptools)
+library(ggmap)
+library("ggplot2")
+library("sf")
+library('rgdal')
+library(rnaturalearth)
+library(rnaturalearthdata)
+library("ggspatial")
+library("RColorBrewer")
+```
+
+```{r}
+# folder where data is stored
+ofolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\'
+# base name of the recovery indicator files
+basename <- c('LSTS_SantaRem_area', '_2000_2020_Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_12_nPostMin_4_nPostMax_6_h_15')
+# directory where the figures will be stored
+figfolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Figures\\'
+
+# lcfolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CopernicusLandCover\\'
+```
+
+# Load the recovery indicators for each site
+```{r}
+map.world <- map_data('world')
+
+# load the recovery indicator raster stacks
+stab1 <- stack(file.path(ofolder, paste0(basename[1],1, basename[2],'.gri')))
+stab2 <- stack(file.path(ofolder, paste0(basename[1],2, basename[2],'.gri')))
+stab3 <- stack(file.path(ofolder, paste0(basename[1],3, basename[2],'.gri')))
+stab4 <- stack(file.path(ofolder, paste0(basename[1],4, basename[2],'.gri')))
+```
+
+# Generate point coordinates of the site centroids
+```{r}
+# generate point coordinates of site centroids
+(sites <- data.frame(longitude = c( mean(extent(stab1)[1:2]),  mean(extent(stab2)[1:2]), mean(extent(stab3)[1:2]),  mean(extent(stab4)[1:2])), latitude = c(mean(extent(stab1)[3:4]), mean(extent(stab2)[3:4]),mean(extent(stab3)[3:4]),  mean(extent(stab4)[3:4]))))
+(sites <- st_as_sf(sites, coords = c("longitude", "latitude"), 
+    crs = 4326, agr = "constant"))
+
+```
+
+# overview of sampled sites
+```{r}
+theme_set(theme_bw())
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+# fr <- raster('C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CopernicusLandCover\\W060N00_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif')
+# frp <- rasterToPoints(fr); frp <- data.frame(hdf)
+# colnames(frp) <- c("X","Y","Forest_type")
+
+
+plt <- ggplot(data = world) +
+  theme(
+  panel.background = element_rect(fill = "lightblue",
+                                colour = "lightblue")
+  )+
+    geom_sf() +
+  # layer(geom="raster",data=frp,mapping=aes(X,Y,fill=Forest_type))+
+  # scale_fill_gradientn(name="Forest type",colours = rainbow(20))+
+  # guides(fill = guide_colorbar()) +
+  # geom_polygon(data=forest, aes(x=long, y=lat, group=group), fill="forestgreen", 
+  #       colour="forestgreen", alpha=0.8)+
+    geom_sf(data = sites, size = 4, shape = 23, fill = "darkred") +
+    # annotation_scale(location = "bl", width_hint = 0.5) +
+    annotation_north_arrow(location = "br", which_north = "true", 
+        pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+        style = north_arrow_fancy_orienteering) +
+    coord_sf(xlim = c(-30, -85), ylim = c(-30, 10), expand = FALSE)
+  # png(file.path(figfolder, 'sites.png'))
+  # print(plt)
+  # dev.off()
+  
+  ggsave(
+  file.path(figfolder, 'sites.png'),
+  plt,
+  width = 3.25,
+  height = 3.25,
+  dpi = 1200
+)
+
+```
+
+# plot recovery indicators of each site
+
+```{r}
+recnames <- c('RRI', 'R80P', 'YrYr', 'Slope')
+
+for (ste in 2:4){
+stabste <- switch(ste, stab1, stab2, stab3, stab4)
+lctile <- switch(ste, 'W060N00', 'W060N00', 'W060N00', 'W060N00')
+xlm <- switch(ste, c(-55.35, -55.29), c(-54.86242, -54.7716), c(-56.34263, -56.24694), c(-52.7285, -52.63175))
+ylm <- switch (ste,  c(-2.97,-2.895), c(-3.05422, -2.980127), c(-2.621285, -2.521258), c(-6.163072, -6.053118))
+
+# generate fire background layer
+f1 <- raster(file.path(ofolder, paste0('LSTS_FireArea_SantaRem_area',ste,'_2000_2020.tif')))
+f1 <- (f1 > 0)
+fp1 <- rasterToPolygons(f1,fun=function(x){x==1}, dissolve=TRUE)
+fpo1 <- st_as_sf(fp1)
+
+# generate forest background layer
+forest <- raster(file.path(lcfolder, paste0(lctile,  '_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif')))
+forest <- crop(forest, extent(f1))
+forestp1 <- rasterToPolygons(forest,fun=function(x){x>-1}, dissolve=TRUE)
+forestpo1 <- st_as_sf(forestp1)
+
+# iterate over the recovery indicators
+for(si in 1:4){
+  # prepare recovery indicator data for plotting - convert from raster to dataframe
+  s1p <- rasterToPoints(stabste[[si]]); s1p <- data.frame(s1p)
+  colnames(s1p) <- c("X","Y","Stab")
+  
+  # plot the data
+  pl <- ggplot(data = world) +
+    theme(
+      panel.background = element_rect(fill = "lightblue",
+                                      colour = "lightblue"))+
+    geom_sf() +
+    geom_sf(data = forestpo1, colour = "forestgreen", fill = "forestgreen") +
+    geom_sf(data = fpo1, colour = "orange", fill = "orange") +
+    geom_tile(data = s1p, aes(X,Y,fill = Stab))  +
+    scale_fill_gradientn(name=recnames[si],colours = brewer.pal(n = 11, name = 'PiYG'))+
+    guides(fill = guide_colorbar()) +
+    # annotation_scale(location = "bl", width_hint = 0.5) +
+    annotation_north_arrow(location = "br", which_north = "true",
+                           pad_x = unit(0, "in"), pad_y = unit(0, "in"),
+                           style = north_arrow_fancy_orienteering) +
+    coord_sf(xlim = xlm, ylim = ylm, expand = FALSE)
+  
+  png(file.path(figfolder, paste0(basename[1],ste,basename[2],'_',recnames[si],'.png')))
+  print(pl)
+  dev.off()
+}
+}
+```
+
+# plot time series associated with a gradient in recovery capacity per site
+```{r}
+library(strucchange)
+library(bfast)
+library(lubridate)
+firefolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CCI_fire\\'
+
+for (ste in 2:4){# sites 
+  st <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_monthly_max.gri')))
+  fr <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Fire_monthly.gri')))
+  stab <- switch(ste,stab1,stab2,stab3,stab4)
+  
+  metafile <- paste0('LSTS_meta_SantaRem_area',ste,'_2000_2020')
+
+meta <- read.csv(paste0(ofolder,metafile,'.csv'))# metadata associated with the image stack
+dts <- as.Date(meta$system_time_start[-1],'%Y,%m,%d')# observation dates of the image stack
+load( file = file.path(firefolder, 'ESACCI-L3S_FIRE-BA-MODIS-AREA_2-fv5.1-CL-01-18.rda'))# fire
+fdts<- as.Date(names(clst), format = "X%Y%m%d") # dates associated with the fire data stack
+
+dtsbr <- seq(min(dts), max(dts), by = "1 month")#"1 day"
+  dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
+  dtsfr <- fdts
+  dtsfr <- rollback(dtsfr, roll_to_first = TRUE, preserve_hms = TRUE)
+  
+  # get the start and end date of the overlap period
+  startdt <- max(c(min(dtsbr), min(dtsfr)))
+  enddt  <- min(c(max(dtsbr), max(dtsfr)))
+  dtsst <- seq(startdt, enddt, by = "1 month")#"1 day"
+  
+  # clip the stacks to the overlap period
+  indbr  <- which((dtsbr > (startdt-1)) & (dtsbr < (enddt+1)))
+  indfr  <- which((dtsfr > (startdt-1)) & (dtsfr < (enddt+1)))
+  
+  st <- st[[indbr]]
+  fr <- fr[[indfr]]
+  
+  
+  for (si in 1:4){# recovery indicators
+    qu <- as.numeric(quantile(stab[[si]] , probs = c(0.001,0.25,0.5,0.75,0.999), na.rm = T))
+    tsii <- matrix(NA,5,dim(st)[3])
+    frii <- matrix(NA,5,dim(fr)[3])
+    trii <- matrix(NA,5,dim(st)[3])
+    for (ii in 1:5){# levels of the recovery index
+      minind <- Which(abs(stab[[si]] - qu[ii]) == minValue(abs(stab[[si]] - qu[ii])), cells=T)
+      tsii[ii,] <- as.numeric(st[minind[1]])
+      frii[ii,] <- as.numeric(fr[minind[1]])
+      
+      tmp <- ts(tsii[ii,], frequency = 12)
+      datapp <- bfastpp(tmp, order = 1, lag = NULL, slag = NULL,
+                        na.action = na.omit, stl = 'none')
+      bp <- breakpoints(response ~ trend, data = datapp, h = 0.15)
+      # Extract BFAST trend component and breaks
+      cf <- coef(bp)
+      tbp <- bp$breakpoints #observation number of break
+      indna <- which(is.na(tmp)==F)
+      tbp <- indna[tbp]   # correct observation number for missing values
+      #Derive trend component without missing values
+      bpf <- c(0, tbp, length(tmp))
+      trf <- rep(NA,length(tmp))
+      for(ti in 1:(length(bpf)-1)){
+        trf[(bpf[ti]+1):bpf[ti+1]] <- cf[ti,1] + ((cf[ti,2]*((bpf[ti]+1):bpf[ti+1])))
+      }
+      trii[ii,] <- trf
+    }
+    
+    zoots <- zoo(t(tsii),dtsst)
+    zoofr <- zoo(t(frii),dtsst)
+    
+    save(zoots, file = file.path(ofolder,paste0('TS_site_',ste, '_',recnames[si])))
+    save(zoofr, file = file.path(ofolder,paste0('TSFire_site_',ste, '_',recnames[si])))
+    
+    
+    png(file.path(figfolder, paste0(basename[1],ste, basename[2],'_T',recnames[si],'.png')),
+  width     = 5.25,
+  height    = 7.25,
+  units     = "in",
+  res       = 1200,
+  pointsize = 15)
+    par(mfrow=c(5,1),mar=c(1,6,1,1))
+    for (ii in 1:5){
+      plot(zoo(tsii[ii,],dtsst), ylab = 'NBR')
+      abline(v=dtsst[frii[ii,]==1], lwd = 2, col = 'red')
+      # lines(zoo(frii[ii,],dtsst), col = 'red')
+      lines(zoo(trii[ii,],dtsst), col = 'darkgreen')
+      # grid()
+      # text(diff(par("usr")[1:2])/10, sum(par("usr")[3:4])/2, labels="Test") 
+      text(grconvertX(0.15,"npc"), grconvertY(0.2, "npc"), paste0(recnames[si], " = ", round(qu[ii], digits = 4)))
+      
+    }
+    dev.off()
+    
+  }
+}
+# plot(d$y,type='l',lwd=3,col='red')
+# > plot(d$x1,type='l',lwd=1.5)
+# > plot(d$x2,type='l',lwd=1.5)
+# > plot(d$x3,type='l',lwd=1.5)
+
+# calcRecoveryTS(c(frii[5,],tsii[5,]), maxBreak=F, obspyr=12, inp = 'segmented', shortDenseTS = TRUE,
+#                          nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15)
+# stab3[minind]
+
+```
+```{r}
+# 
+ifolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\' # folder with data characteristics
+firefolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CCI_fire\\' #'\\\\WURNET.NL\\Homes\\keers001\\AppData\\FolderRedirection\\Desktop\\cci_fire2\\'
+
+metafile <- 'LSTS_meta_SantaRem_area3_2000_2020'
+
+meta <- read.csv(paste0(ifolder,metafile,'.csv'))# metadata associated with the image stack
+dts <- as.Date(meta$system_time_start[-1],'%Y,%m,%d')# observation dates of the image stack
+load( file = file.path(firefolder, 'ESACCI-L3S_FIRE-BA-MODIS-AREA_2-fv5.1-CL-01-18.rda'))# fire
+fdts<- as.Date(names(clst), format = "X%Y%m%d") # dates associated with the fire data stack
+
+library(lubridate)
+dtsbr <- seq(min(dts), max(dts), by = "1 month")#"1 day"
+  dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
+  dtsfr <- fdts
+  dtsfr <- rollback(dtsfr, roll_to_first = TRUE, preserve_hms = TRUE)
+
+
+```
