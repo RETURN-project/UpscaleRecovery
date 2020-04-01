@@ -193,6 +193,7 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
 
 test_that("Temporal aggregation", {
   library(raster)
+  library(lubridate)
   # mask
   m <- raster(ncol=3, nrow=3, vals=c(1,1,0,1,1,1,1,1,1))
   # rasters of time series observations
@@ -233,13 +234,17 @@ test_that("Temporal aggregation", {
   names(brmomean) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'monthly'))
   # create daily time series
   brday <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'daily')})
-  library(lubridate)
   names(brday) <- date_decimal(as.numeric(time(bfastts(rep(1,length(dts)), dts, type = "irregular"))))
+  # create quarterly time series
+  brquart <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'quart')})
+  names(brquart) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'quart'))
+
 
   # convert to matrix'
   mmomax <- raster::as.matrix(brmomax)
   mmomean <- raster::as.matrix(brmomean)
   mday <- raster::as.matrix(brday)
+  mquart <-  raster::as.matrix(brquart)
 
   # case 1 - monthly max
   expect_equal(as.numeric(mmomax[1,]), c(2,20,30,-2,-11,-10,-9,-8,-7,-66,NA,-6), tolerance = 1e-4)
@@ -248,6 +253,8 @@ test_that("Temporal aggregation", {
   # case 3 - daily
   expect_equal(as.numeric(mday[1,c(1,2,32,34,60,62,91,94,121,131,152,153,182,202,213,223,244,264,274,335)]),
                c(1,2,1,20,1,30,-12,-2,-11,-21,-10,-30,-9,-39,-8,-48,-7,-57,-66,-6), tolerance = 1e-4)
+  # case 4 - quarterly
+  expect_equal(as.numeric(mquart[1,]),c(30,-2, -7,-6))
 })
 
 

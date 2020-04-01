@@ -85,8 +85,15 @@ toRegularTS <- function(tsi, dts, fun, resol){
     }
   }else if (resol == 'daily'){
     mz <- bfastts(tsi, dts, type = "irregular")
+  }else if (resol == 'quart'){
+    z <- zoo(tsi, dts) ## create a zoo (time) series
+    if(fun == 'max'){
+      mz <- as.ts(aggregate(z, as.yearqtr, mmax)) ## max
+    }
+    if(fun == 'mean'){
+      mz <- as.ts(aggregate(z, as.yearqtr, mean)) ## mean
+    }
   }
-
    return(mz)
  }
 

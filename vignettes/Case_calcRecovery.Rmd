@@ -31,7 +31,7 @@ tsfile <- 'LSTS_SantaRem_area5_2000_2020'# name of the file with NBR time series
 metafile <- 'LSTS_meta_SantaRem_area5_2000_2020'# metadata file of the NBR time series
 firefile <- 'LSTS_FireArea_SantaRem_area5_2000_2020'# name of the file with the fire mask
 
-tempRes <- 'monthly' # daily, annual or monthly (yearly data not supported yet!)
+tempRes <- 'quart' # daily, annual, monthly, or quart (yearly data not supported yet!)
 tempFun <- 'max' # max or mean (function used for temporal aggregation of data)
 
 # settings of the derived recovery indicators
