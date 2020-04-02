@@ -158,6 +158,8 @@ createFireStack <- function(x, dts, resol, thres)
   if(resol == 'monthly'){
     len <- length(dts)}else if(resol == 'daily'){
       len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "1 day"))
+    }else if (resol == 'quart'){
+      len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "3 months"))
     }
   res <- matrix(NA, length(i), len)
   if(sum(i) == 1) {
@@ -198,6 +200,10 @@ toFireTS <- function(x, dts, resol, thres = 95){
     firedoy <- jd[ind] # doy of the observed fires
     firedate <- as.Date(paste0(fireyr,'-',firedoy),'%Y-%j')# create fire observation dates
     out[tsdts %in% firedate] = 1# set fire observation dates to 1
+  }else if (resol == 'quart'){
+    outm <- rep(0,length(cl)) # initialise a vector of zeros
+    outm[cl>thres & jd>0] <- 1 # dates with high fire confidence and doy of fire > 0 are set to 1
+    out <- toRegularTS(outm, dts, 'max', 'quart')
   }
   out
 }
