@@ -83,8 +83,10 @@ test_that("Frazier - segmented", {
   nPostMin <- 4
   nPostMax <- 5
   h <- 0.1
+  timeThres <- 2
+  slpThres <- 2
 
-  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
+  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, slpThres)
   pre <- 1
   dist <- mean(tsio[25:36])
   post <- mean(tsio[73:85])
@@ -135,8 +137,8 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
 
   # Calculate stability indicators (RRI, R80P, YrYr, Sl)
   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=T, obspyr=1, inp = 'raw', shortDenseTS = FALSE,
-                                                nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15)})
-  names(out) <- c('RRI', 'R80p', 'YrYr', 'Slope')
+                                                nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres = 2, slpThres = 2)})
+  names(out) <- c('RRI', 'R80p', 'YrYr', 'Slope', 'missingVal', 'loglik', 'AIC')
   mout <- raster::as.matrix(out)
   # observations that were masked
   msked <- sum(is.na(mout[2:3,]))
@@ -175,7 +177,7 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
   c3yryr <- (1+3)/5 # 5 years post - disturbance value / 5
 
   # masked time series should have NA value for the recovery indicators
-  expect_equal(msked, 8, tolerance = 1e-4)
+  expect_equal(msked, 14, tolerance = 1e-4)
   # case 1 - multiple disturbance dates
   expect_equal(as.numeric(mout[1,1]), c1rri, tolerance = 1e-4)
   expect_equal(as.numeric(mout[1,2]), c1r80p, tolerance = 1e-4)

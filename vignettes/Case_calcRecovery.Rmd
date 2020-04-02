@@ -27,12 +27,14 @@ ofolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN
 firefolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CCI_fire\\' #'\\\\WURNET.NL\\Homes\\keers001\\AppData\\FolderRedirection\\Desktop\\cci_fire2\\' 
 # directory where the fire data are stored
 
-tsfile <- 'LSTS_SantaRem_area5_2000_2020'# name of the file with NBR time series
-metafile <- 'LSTS_meta_SantaRem_area5_2000_2020'# metadata file of the NBR time series
-firefile <- 'LSTS_FireArea_SantaRem_area5_2000_2020'# name of the file with the fire mask
+tsfile <- 'LSTS_SantaRem_area2_2000_2020'# name of the file with NBR time series
+metafile <- 'LSTS_meta_SantaRem_area2_2000_2020'# metadata file of the NBR time series
+firefile <- 'LSTS_FireArea_SantaRem_area2_2000_2020'# name of the file with the fire mask
 
 tempRes <- 'quart' # daily, annual, monthly, or quart (yearly data not supported yet!)
 tempFun <- 'max' # max or mean (function used for temporal aggregation of data)
+timeThres <- 2 # in case of segmentations, the time period between the detected break and the disturbance should be less than timeThres years
+slpThres <- 2 # the slope of the pre-disturbance period should be less than slpThres
 
 # settings of the derived recovery indicators
 # input: refers to the tine series pre-processing: raw (=no preprocessing), smoothed or segmented
@@ -186,8 +188,8 @@ for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recove
   
   # calculate the recovery indicators
   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS = funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist = funSet$nDist[i], nPostMin = funSet$nPostMin[i],
-                                                nPostMax = funSet$nPostMax[i], h = funSet$h[i])}, 
-              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_', funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i], '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' , funSet$nPostMax[i], '_h_', funSet$h[i]*100), overwrite=TRUE)
+                                                nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)}, 
+              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_', funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i], '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' , funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres), overwrite=TRUE)
 }
 
 ```

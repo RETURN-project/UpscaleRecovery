@@ -6,7 +6,7 @@
 \usage{
 calcRecoveryTS(tsi, maxBreak, obspyr, inp = "segmented",
   shortDenseTS = TRUE, nPre = 2, nDist = 12, nPostMin = 4,
-  nPostMax = 6, h = 0.15)
+  nPostMax = 6, h = 0.15, timeThres, slpThres)
 }
 \arguments{
 \item{tsi}{vector: the first n values contain the timing of the disturbances and the next n values the observations for which the recovery indicators should be computed}
@@ -28,6 +28,10 @@ calcRecoveryTS(tsi, maxBreak, obspyr, inp = "segmented",
 \item{nPostMax}{end of the post-disturbance period: number of years after the disturbance}
 
 \item{h}{h parameter of the breakpoints function in the strucchange package}
+
+\item{timeThres}{only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]}
+
+\item{slpThres}{only relevant for segmentation:threshold on the pre-disturbance slope}
 }
 \value{
 the RRI, R80P, YrYr and the slope of the pos-disturbance segment
