@@ -208,5 +208,67 @@ toFireTS <- function(x, dts, resol, thres = 95){
   out
 }
 
+#' Mask low quality observations for Landsat 4, 5, or 7 time series.
+#'
+#' @param x a vector, where the first n observations represent Landsat observations,
+#' the next n observations represent the associated SR_CLOUD_QA values,
+#' the next n observations represent the QA_PIXEL values,
+#' and the final n observations represent the QA_RADSAT values
+#'
+#' @return vector of Landsat observations for which low quality observations are masked
+#' @export
+#'
+maskL47 <- function(x){
+  len <- length(x)/4
+  vals <- x[1:len]
+  cld <- x[(len+1):(2*len)]
+  px <- x[((2*len)+1):(3*len)]
+  sat <- x[((3*len)+1):(4*len)]
+  # SR_CLOUD_QA mask: cloud (bit 1), cloud shadow (bit 2), adjacent to cloud (bit 3), snow (bit 4), water (bit 5)
+  m <- sapply(cld,function(x){ as.integer(intToBits(x))})# unpack bit words
+  vals[(m[2,] == 1) | (m[3,] == 1) | (m[4,] == 1) | (m[5,] == 1) | (m[6,] == 1)] <- NA
+  # QA_PIXEL mask: fill (bit 0), dilated cloud (bit 1), cloud (bit 3), cloud shadow (bit 4)
+  m <- sapply(px,function(x){ as.integer(intToBits(x))})
+  vals[(m[1,] == 1) | (m[2,] == 1) | (m[4,] == 1) | (m[5,] == 1)] <- NA
+  # QA_RADSAT radionetric saturation quality (shows which sensor bands were saturated during data capture, yielding unusable data): saturation band 4 (bit 3) and band 7 (bit 6)
+  m <- sapply(sat,function(x){ as.integer(intToBits(x))})
+  vals[(m[4,] == 1) | (m[7,] == 1)] <- NA
 
+  return(vals)
+}
 
+#'  Mask low quality observations for a stack of Landsat 4, 5, or 7 images.
+#'
+#' @param x a raster stack, where the first image is a mask (only pixels with a value equal to 1 are processed),
+#' the subsequent n images represent Landsat observations,
+#' the next n images represent the associated SR_CLOUD_QA values,
+#' the next n images represent the QA_PIXEL values,
+#' and the final n images represent the QA_RADSAT values
+#'
+#' @return stack of images for which low quality observations are masked
+#' @export
+#'
+maskL47Stack <- function(x)
+{
+  msk <- x[,1]
+  x <- x[,-1]
+  i <- (msk == 1)
+  if(sum(i) == 1) {
+    res[i,] <- maskL47(x[i,])
+  } else if(sum(i) > 1) {
+    res[i,] <- t(apply(maskL47[i,]))
+  }
+  res
+}
+
+#' Calculate Normalized Burn Ratio
+#'
+#' @param NIR Reflectance NIR band (band 4 for landsat 4-7 and band 5 for landsat 8)
+#' @param SWIR Reflectance SWIR band (band 7 of landsat)
+#'
+#' @return
+#' @export
+#'
+calcNBR <- function(NIR, SWIR){
+  return ((NIR - SWIR) / (NIR + SWIR))
+}
