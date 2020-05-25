@@ -317,3 +317,82 @@ test_that("Prepare fire time series", {
   expect_equal(as.numeric(mfday[7,]), d7, tolerance = 1e-4)
 
 })
+
+test_that("Mask Landsat 4-7 time series", {
+  # test cloud layer
+  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
+  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
+  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
+  NBR <- stack(NBR1,NBR2)
+  cloud1 <- raster(ncol=3, nrow=3, vals=c(0,1,2,4,8,12,16,20,24))
+  cloud2 <- raster(ncol=3, nrow=3, vals=c(32,34,36,40,48,52,56,0,0))
+  cloud <- stack(cloud1,cloud2)
+  pix <- stack(raster(ncol=3, nrow=3, vals=rep(66,9)),raster(ncol=3, nrow=3, vals=rep(66,9)))
+  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  br1 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
+
+  mx1 <- raster::as.matrix(br1)# convert to matrix'
+  expect_equal(sum(is.na(mx1)),16)
+  expect_equal(as.numeric(mx1[2,1]),.2)
+  expect_equal(as.numeric(mx1[8,2]),1.8)
+
+  # test pixel layer
+  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
+  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
+  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
+  NBR <- stack(NBR1,NBR2)
+  cloud <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  pix <- stack(raster(ncol=3, nrow=3, vals=c(1,1,66,130,68,132,72,136,66)),raster(ncol=3, nrow=3, vals=c(80,112,144,176,96,160,224,130,130)))
+  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  br2 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
+
+  mx2 <- raster::as.matrix(br2)
+  expect_equal(sum(is.na(mx2)),15)
+  expect_equal(as.numeric(mx2[3,1]),.3)
+  expect_equal(as.numeric(mx2[4,1]),.4)
+  expect_equal(as.numeric(mx2[8,2]),1.8)
+
+  # test radsat layer
+  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
+  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
+  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
+  NBR <- stack(NBR1,NBR2)
+  cloud <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  pix <- stack(raster(ncol=3, nrow=3, vals=rep(66,9)),raster(ncol=3, nrow=3, vals=rep(66,9)))
+  radsat <- stack(raster(ncol=3, nrow=3, vals=c(0,0,16,16,128,144,0,0,0)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  br3 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
+
+  mx3 <- raster::as.matrix(br3)
+  expect_equal(sum(is.na(mx3)),8)
+
+})
+
+test_that("Mask Landsat 8 time series", {
+    # test pixel layer
+  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
+  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
+  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
+  NBR <- stack(NBR1,NBR2)
+  pix <- stack(raster(ncol=3, nrow=3, vals=c(1,1,322,386, 834, 898, 1346,324, 388)),raster(ncol=3, nrow=3, vals=c(328,336,352,1352,944,992,400,880,880)))
+  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  br2 <- calc(stack(msk, NBR, pix, radsat), function(x){maskL8Stack(x)})
+
+  mx2 <- raster::as.matrix(br2)
+  expect_equal(sum(is.na(mx2)),13)
+  expect_equal(as.numeric(mx2[3,1]),.3)
+  expect_equal(as.numeric(mx2[4,1]),.4)
+  expect_equal(as.numeric(mx2[7,1]),.7)
+
+  # test radsat layer
+  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
+  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
+  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
+  NBR <- stack(NBR1,NBR2)
+  pix <- stack(raster(ncol=3, nrow=3, vals=rep(322,9)),raster(ncol=3, nrow=3, vals=rep(322,9)))
+  radsat <- stack(raster(ncol=3, nrow=3, vals=c(0,0,32,32,128,160,0,0,0)),raster(ncol=3, nrow=3, vals=rep(0,9)))
+  br3 <- calc(stack(msk, NBR, pix, radsat), function(x){maskL8Stack(x)})
+
+  mx3 <- raster::as.matrix(br3)
+  expect_equal(sum(is.na(mx3)),8)
+
+})

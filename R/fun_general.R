@@ -162,10 +162,12 @@ createFireStack <- function(x, dts, resol, thres)
       len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "3 months"))
     }
   res <- matrix(NA, length(i), len)
-  if(sum(i) == 1) {
-    res[i,] <- toFireTS(x[i,], dts, resol = resol, thres = thres)
-  } else if(sum(i) > 1) {
-    res[i,] <- t(apply(x[i,], 1, toFireTS, dts, resol, thres))
+  if(sum(i, na.rm = T)>0){
+    if(sum(i) == 1) {
+      res[i,] <- toFireTS(x[i,], dts, resol = resol, thres = thres)
+    } else if(sum(i) > 1) {
+      res[i,] <- t(apply(x[i,], 1, toFireTS, dts, resol, thres))
+    }
   }
   res
 }
@@ -229,10 +231,10 @@ maskL47 <- function(x){
   vals[(m[2,] == 1) | (m[3,] == 1) | (m[4,] == 1) | (m[5,] == 1) | (m[6,] == 1)] <- NA
   # QA_PIXEL mask: fill (bit 0), dilated cloud (bit 1), cloud (bit 3), cloud shadow (bit 4)
   m <- sapply(px,function(x){ as.integer(intToBits(x))})
-  vals[(m[1,] == 1) | (m[2,] == 1) | (m[4,] == 1) | (m[5,] == 1)] <- NA
+  vals[(m[1,] == 1) | (m[2,] == 0) | (m[3,] == 1) | (m[4,] == 1) | (m[5,] == 1)| (m[6,] == 1)] <- NA
   # QA_RADSAT radionetric saturation quality (shows which sensor bands were saturated during data capture, yielding unusable data): saturation band 4 (bit 3) and band 7 (bit 6)
   m <- sapply(sat,function(x){ as.integer(intToBits(x))})
-  vals[(m[4,] == 1) | (m[7,] == 1)] <- NA
+  vals[(m[5,] == 1) | (m[8,] == 1)] <- NA
 
   return(vals)
 }
@@ -241,7 +243,6 @@ maskL47 <- function(x){
 #'
 #' @param x a raster stack, where the first image is a mask (only pixels with a value equal to 1 are processed),
 #' the subsequent n images represent Landsat observations,
-#' the next n images represent the associated SR_CLOUD_QA values,
 #' the next n images represent the QA_PIXEL values,
 #' and the final n images represent the QA_RADSAT values
 #'
@@ -253,10 +254,63 @@ maskL47Stack <- function(x)
   msk <- x[,1]
   x <- x[,-1]
   i <- (msk == 1)
+  len <- dim(x)[2]/4
+  res <- matrix(NA, length(i), len)
   if(sum(i) == 1) {
     res[i,] <- maskL47(x[i,])
   } else if(sum(i) > 1) {
-    res[i,] <- t(apply(maskL47[i,]))
+    res[i,] <- t(apply(x[i,],1, maskL47))
+  }
+  res
+}
+
+
+#' Mask low quality observations for Landsat 8 time series.
+#'
+#' @param x a vector, where the first n observations represent Landsat observations,
+#' the next n observations represent the QA_PIXEL values,
+#' and the final n observations represent the QA_RADSAT values
+#'
+#' @return vector of Landsat observations for which low quality observations are masked
+#' @export
+#'
+maskL8 <- function(x){
+  len <- length(x)/3
+  vals <- x[1:len]
+  px <- x[(len+1):(2*len)]
+  sat <- x[((2*len)+1):(3*len)]
+  # QA_PIXEL mask: fill (bit 0), dilated cloud (bit 1), cloud (bit 3), cloud shadow (bit 4)
+  m <- sapply(px,function(x){ as.integer(intToBits(x))})
+  vals[(m[1,] == 1) | (m[2,] == 0) | (m[3,] == 1) | (m[4,] == 1) | (m[5,] == 1)| (m[6,] == 1)] <- NA
+  # QA_RADSAT radionetric saturation quality (shows which sensor bands were saturated during data capture, yielding unusable data): saturation band 5 (bit 5) and band 7 (bit 7)
+  m <- sapply(sat,function(x){ as.integer(intToBits(x))})
+  vals[(m[6,] == 1) | (m[8,] == 1)] <- NA
+
+  return(vals)
+}
+
+#'  Mask low quality observations for a stack of Landsat 8 images.
+#'
+#' @param x a raster stack, where the first image is a mask (only pixels with a value equal to 1 are processed),
+#' the subsequent n images represent Landsat observations,
+#' the next n images represent the associated SR_CLOUD_QA values,
+#' the next n images represent the QA_PIXEL values,
+#' and the final n images represent the QA_RADSAT values
+#'
+#' @return stack of images for which low quality observations are masked
+#' @export
+#'
+maskL8Stack <- function(x)
+{
+  msk <- x[,1]
+  x <- x[,-1]
+  i <- (msk == 1)
+  len <- dim(x)[2]/3
+  res <- matrix(NA, length(i), len)
+  if(sum(i) == 1) {
+    res[i,] <- maskL8(x[i,])
+  } else if(sum(i) > 1) {
+    res[i,] <- t(apply(x[i,],1, maskL8))
   }
   res
 }

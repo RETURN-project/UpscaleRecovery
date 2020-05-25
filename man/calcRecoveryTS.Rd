@@ -4,9 +4,20 @@
 \alias{calcRecoveryTS}
 \title{Calculate recovery for a single time series}
 \usage{
-calcRecoveryTS(tsi, maxBreak, obspyr, inp = "segmented",
-  shortDenseTS = TRUE, nPre = 2, nDist = 12, nPostMin = 4,
-  nPostMax = 6, h = 0.15, timeThres, slpThres)
+calcRecoveryTS(
+  tsi,
+  maxBreak,
+  obspyr,
+  inp = "segmented",
+  shortDenseTS = TRUE,
+  nPre = 2,
+  nDist = 12,
+  nPostMin = 4,
+  nPostMax = 6,
+  h = 0.15,
+  timeThres,
+  slpThres
+)
 }
 \arguments{
 \item{tsi}{vector: the first n values contain the timing of the disturbances and the next n values the observations for which the recovery indicators should be computed}
