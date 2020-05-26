@@ -1,0 +1,200 @@
+-----------------------------------
+Documentation datasets
+-----------------------------------
+
+___________________________________
+1. Landsat surface reflectance 
+___________________________________
+
+.......................................
+Description:
+
+Surface reflectance improves comparison between multiple images over the same region by accounting for atmospheric effects such as aerosol scattering and thin clouds, which can help in the detection and characterization of Earth surface change. Surface reflectance is generated from Level-1 inputs that meet the <76 degrees Solar Zenith Angle constraint and include the required auxiliary data inputs to generate a scientifically viable product.
+
+Landsat surface reflectance data are available globally for the following instruments:
+
+   - Landsat 8 Operational Land Imager (OLI): April 2013 to present
+   - Landsat 7 Enhanced Thematic Mapper Plus (ETM+): July 1999 to present
+   - Landsat 5 Thematic Mapper (TM): March 1984 to May 2012
+   - Landsat 4 Thematic Mapper (TM): July 1982 to December 1993
+
+Landsat Surface Reflectance output from Landsat 8 contains:
+• Surface Reflectance data files (Bands 1–7)
+• Radiometric Saturation QA band (radsat_qa)
+• Surface Reflectance Aerosol QA band
+• Level 2 Pixel Quality Assessment band (pixel_qa)
+• Surface Reflectance metadata file (.xml)
+
+Landsat Surface Reflectance output from Landsat 7 ETM+, Landsat 5 TM, and Landsat 4 TM will contain:
+• Surface Reflectance data files (Bands 1-5, 7)
+• Surface Reflectance quality files (sr_cloud_qa, sr_atmos_opacity)
+• Radiometric Saturation Quality Assessment band (radsat_qa)
+• Level 2 Pixel Quality Assessment band (pixel_qa)
+• Surface Reflectance metadata file (.xml)
+
+Filenames utilize the productID followed by “_sr_,” as exemplified by “LT04_L1TP_023028_19821212_20161004_01_T1_sr_*”.
+
+More information on the Landsat 4-7 and 8 datasets can be found in 'LSDS-1370_L4-7_SurfaceReflectance-LEDAPS_ProductGuide-v2.pdf' and 'LSDS-1368_L8_SurfaceReflectanceCode-LASRC_ProductGuide-v2.pdf', respectively. 
+
+.......................................
+Naming convention: 
+
+LXSS_LLLL_PPPRRR_YYYYMMDD_yyyymmdd_CC_TX_sr_var_crop.tif
+
+Where:
+
+    L = Landsat
+    X = Sensor (“C”=OLI/TIRS combined, “O”=OLI-only, “T”=TIRS-only, “E”=ETM+, “T”=“TM, “M”=MSS)
+    SS = Satellite (”07”=Landsat 7, “08”=Landsat 8)
+    LLL = Processing correction level (L1TP/L1GT/L1GS)
+    PPP = WRS path
+    RRR = WRS row
+    YYYYMMDD = Acquisition year, month, day
+    yyyymmdd - Processing year, month, day
+    CC = Collection number (01, 02, …)
+    TX = Collection category (“RT”=Real-Time, “T1”=Tier 1, “T2”=Tier 2)
+    prod = denotes the information that the file contains:
+    for Landsat 8:
+    	sr_aerosol: Surface Reflectance Aerosol QA
+    	radsat_qa: Radiometric Saturation QA band
+    	pixel_qa: Level 2 Pixel Quality Assessment band
+    	sr_band7: Surface Reflectance data band 7
+    	sr_band5: Surface Reflectance data band 5
+    for Landsat 4-7:
+    	sr_cloud_qa: Surface Reflectance quality
+    	sr_atmos_opacity: Surface Reflectance quality
+    	radsat_qa: Radiometric Saturation Quality Assessment
+    	pixel_qa: Level 2 Pixel Quality Assessment
+    	sr_band7: Surface Reflectance data band 7
+    	sr_band4: Surface Reflectance data band 4
+
+Example:  LC08_L1TP_225064_20170821_20170911_01_T1_sr_band5_crop.tif
+
+Means: Landsat 8; OLI/TIRS combined; processing correction level L1TP; path 225; row 064; acquired August 21, 2017; processed September 11, 2017; Collection 1; Tier 1; surface reflectance band 5
+
+.......................................
+Downloaded from:
+
+After registration (https://ers.cr.usgs.gov/register/), the data can be ordered through the following interface: https://espa.cr.usgs.gov/ordering/new/
+
+Here, Surface Reflectance and Pixel QA Level-2 Products (in GeoTIFF format) were ordered for the study area. A user guide for the download interface can be found in 'LSDS-1417-ESPA-On-Demand-Interface-User-Guide-v3(3).pdf'. A list of input products was generated using 'https://earthexplorer.usgs.gov/''
+
+Once data are processed, you get notified by mail. The data can then be downloaded in bulk using the bulk-downloader available on 'https://github.com/USGS-EROS/espa-bulk-downloader'
+
+More information about tools to download Landsat data can be found at: 'https://www.usgs.gov/land-resources/nli/landsat/landsat-data-access?qt-science_support_page_related_con=0#qt-science_support_page_related_con' (particularly under the section Landsat Level-2 Scenes (Global)).
+
+___________________________________
+2. Land cover data [MapBiomas]
+___________________________________
+.......................................
+Description:
+
+GeoTIFF file of yearly land cover and land use maps that are derived from Landsat mosaics. Each band of the geoTIFF file refers to a particular year. The data have a spatial resolution of 30m and its time span ranges between 1985 and 2018.  
+
+Each pixel of the raster band contains a value that refers to a land cover type. A description of each land cover class can be found in '[en] Legend description collection 4.0.pdf' and the corresponding pixel IDs in 'MAPBIOMAS_Legenda_Cores__1_.xlsx'.
+
+.......................................
+Name: 
+COLECAO_4_1_CONSOLIDACAO_amazonia_crop.tif
+
+.......................................
+Downloaded from:
+https://mapbiomas.org/colecoes-mapbiomas?cama_set_language=en
+
+The data can also be visualised here: https://plataforma.mapbiomas.org/map#coverage
+
+.......................................
+To be cited as: 
+
+"Project MapBiomas - Collection [version] of Brazilian Land Cover & Use Map Series, accessed on [date] through the link: [LINK]"
+
+"MapBiomas Project - is a multi-institutional initiative to generate annual land cover and use maps using automatic classification processes applied to satellite images. The complete description of the project can be found at http://mapbiomas.org".
+
+.......................................
+Scientific literature:
+
+___________________________________
+3. Burned area [CCI Fire]
+___________________________________
+
+.......................................
+Description:
+
+GeoTIFF files that contain spatio-temporal information on burned areas. Per month, two layers are provided indicating the date of detection and the confidence level of the pixel detected as burned.
+
+The date of detection layer corresponds to the day in which the fire was first detected, also commonly called Julian Day. The date of the burned pixel may not be coincident with the actual burning date, but most probably taken from one to several days afterwards, depending on image availability and cloud coverage. For areas with low cloud coverage, the detected date of burn should be very close to the actual date of burn, while for areas with high cloud coverage the date may be from several days or even weeks after the fire is over.
+
+Possible values: 
+• 0 (zero): when the pixel is not burned. 
+• 1 to 366: day of the first detection when the pixel is burned. 
+• -1: when the pixel is not observed in the month. 
+• -2: used for pixels that are not burnable: water bodies, bare areas, urban areas, permanent snow and ice.
+
+The confidence level is the probability that the pixel is actually burned. A pixel with a confidence level of 80 means that it is burned with a probability of 80%, which implies that the input data and the algorithm result in a fairly high belief of the pixel being burned. A low value (for instance, 5) would indicate a strong belief of the pixel not being burned. These values can also be called “per pixel” uncertainty (pb). It should be noted that this uncertainty is just a description of how much one can trust the interpretation of the burned/unburned state of a pixel given the uncertainty of the data, the choices done in modelling, etc. It does not give an indication about whether the estimates of BA are close to the truth, as that is really the role of validation.
+
+Possible values: 
+- 0 (zero): when the pixel is not observed in the month, or it is not burnable (not vegetated). 
+- 1 to 100: Probability values. The closer to 100, the higher the confidence that the pixel is actually burned. This value expresses the uncertainty of the detection for all pixels, even if they are classified as unburned.
+
+More information can be found in the Fire_cci_D4.2_PUG-MODIS_v1.0.pdf document or using the following url: https://www.esa-fire-cci.org/FireCCI51
+
+.......................................
+Naming convention: yyyymmdd-ESACCI-L3S_FIRE-BA-MODIS-AREA-fv5.1-JD_crop.tif refers to the julian day layer for year yyyy, month mm and day dd.
+
+yyyymmdd-ESACCI-L3S_FIRE-BA-MODIS-AREA-fv5.1-CL_crop.tif refers to the confidence layer for year yyyy, month mm and day dd.
+
+.......................................
+Downloaded from: https://www.esa-fire-cci.org/FireCCI51
+After registering, you can access the data from the ftp (under the folder pixel, version 5.1)
+
+.......................................
+To be cited as: 
+M.L. Pettinari, J. Lizundia-Loiola, E. Chuvieco (2020)ESA CCI ECV Fire Disturbance: D4.2Product User Guide-MODIS, version 1.0. Available at: https://www.esa-fire-cci.org/documents
+
+.......................................
+Scientific literature:
+Lizundia-Loiola, J., Otón, G., Ramo, R., Chuvieco, E. (2020) A spatio-temporal active-fire clustering approach for global burned area mapping at 250 m from MODIS data. Remote Sensing of Environment 236: 111493, https://doi.org/10.1016/j.rse.2019.111493.
+
+Chuvieco E., Yue C., Heil A., Mouillot F., Alonso-Canas I., Padilla M., Pereira J. M., Oom D. and Tansey K. (2016). “A new global burned area product for climate assessment of fire impacts.” Global Ecology and Biogeography 25(5): 619-629, https://doi.org/10.1111/geb.12440.
+
+Chuvieco E., Lizundia-Loiola J., Pettinari M.L. Ramo R., Padilla M., Tansey K., Mouillot F., Laurent P., Storm T., Heil A., Plummer S. (2018) “Generation and analysis of a new global burned area product based on MODIS 250m reflectance bands and thermal anomalies”. Earth System Science Data 10: 2015-2031, https://doi.org/10.5194/essd-10-2015-2018.
+
+___________________________________
+4. Tree cover [Hansen tree cover]
+___________________________________
+.......................................
+Description:
+
+This dataset is the result from time-series analysis of Landsat images in characterizing global forest extent and change from 2000 through 2018.
+
+The data consists of a geoTIFF layer with tree canopy cover for year 2000 (treecover2000), defined as canopy closure for all vegetation taller than 5m in height. This is encoded as a percentage per output grid cell, in the range 0–100.
+
+Additionally a data mask (datamask) layer is provided. This layer contains three values representing areas of no data (0), mapped land surface (1), and permanent water bodies (2).
+
+.......................................
+Names: 
+
+Hansen_GFC-2018-v1.6_datamask_crop.tif: data mask
+
+Hansen_GFC-2018-v1.6_treecover2000_crop.tif: tree cover layer for the year 2000
+
+.......................................
+Downloaded from:
+
+https://earthenginepartners.appspot.com/science-2013-global-forest/download_v1.6.html
+
+.......................................
+To be cited as: 
+
+Use the following credit when these data are displayed:
+
+    Source: Hansen/UMD/Google/USGS/NASA
+
+Use the following credit when these data are cited:
+
+    Hansen, M. C., P. V. Potapov, R. Moore, M. Hancher, S. A. Turubanova, A. Tyukavina, D. Thau, S. V. Stehman, S. J. Goetz, T. R. Loveland, A. Kommareddy, A. Egorov, L. Chini, C. O. Justice, and J. R. G. Townshend. 2013. “High-Resolution Global Maps of 21st-Century Forest Cover Change.” Science 342 (15 November): 850–53. Data available on-line from: http://earthenginepartners.appspot.com/science-2013-global-forest. 
+
+.......................................
+Scientific literature:
+
+Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., Turubanova, S. A., Tyukavina, A., ... & Kommareddy, A. (2013). High-resolution global maps of 21st-century forest cover change. science, 342(6160), 850-853.
