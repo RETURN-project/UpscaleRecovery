@@ -91,7 +91,6 @@ lc <- lc[[which((dtslc >= startyr) & (dtslc <= endyr))]]# remove observations ou
 
 # Hansen land cover 
 han_msk <- raster(file.path(ifolder, 'Hansen_GFC-2018-v1.6_datamask_crop.tif'))
-han_loss <- raster(file.path(ifolder, 'Hansen_GFC-2018-v1.6_lossyear_crop.tif'))
 han_cov <- raster(file.path(ifolder, 'Hansen_GFC-2018-v1.6_treecover2000_crop.tif'))
 han_cov[han_msk == 0] <- NA # remove invalid observations
 rm(han_msk)
