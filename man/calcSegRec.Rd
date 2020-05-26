@@ -4,8 +4,20 @@
 \alias{calcSegRec}
 \title{Post-disturbance slope and recovery metrics derived from BFAST0n trend segments. The calcBFASTrec function derives a set of recovery indicators after fitting a segmented trend in the time series. Using the breakpoints function of the strucchange package, a segmented trend is fitted (hereafter called BFAST0n trend segments). The detected break showing the largest change (in absolute values) is assumed to represent the disturbance. Using the segmented trend and detected disturbance date, the RRI, R80p, YrYr and the slope of the post-disturbance trend segment are derived as recovery indicators.}
 \usage{
-calcSegRec(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist,
-  nPostMin, nPostMax)
+calcSegRec(
+  tsio,
+  tdist,
+  maxBreak,
+  obspyr,
+  h,
+  shortDenseTS,
+  nPre,
+  nDist,
+  nPostMin,
+  nPostMax,
+  timeThres,
+  slpThres
+)
 }
 \arguments{
 \item{tsio}{vector of observations (time series)}
@@ -27,6 +39,10 @@ calcSegRec(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist,
 \item{nPostMin}{If shortDenseTS is TRUE, min number of years after the disturbance used to quantify the recovery}
 
 \item{nPostMax}{If shortDenseTS is TRUE, max number of years after the disturbance used to quantify the recovery}
+
+\item{timeThres}{threshold on the duration between the disturbance date and date of the detected break [years]}
+
+\item{slpThres}{threshold on the pre-disturbance slope}
 }
 \value{
 a list containing  the RRI, R80p, YrYr recovery indicator derived from the BFAST0n trend segments and slope of the trend segment after the disturbance (sl).

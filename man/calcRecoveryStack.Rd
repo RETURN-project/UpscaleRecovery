@@ -4,9 +4,20 @@
 \alias{calcRecoveryStack}
 \title{Calculate recovery indicators from a time series stack}
 \usage{
-calcRecoveryStack(st, maxBreak, obspyr, inp = "segmented",
-  shortDenseTS = TRUE, nPre = 2, nDist = 12, nPostMin = 4,
-  nPostMax = 6, h = 0.15)
+calcRecoveryStack(
+  st,
+  maxBreak,
+  obspyr,
+  inp = "segmented",
+  shortDenseTS = TRUE,
+  nPre = 2,
+  nDist = 12,
+  nPostMin = 4,
+  nPostMax = 6,
+  h = 0.15,
+  timeThres,
+  slpThres
+)
 }
 \arguments{
 \item{st}{raster stack, the first raster is a mask (pixels with value 0 are not considered, pixels with value 1 are included), the next n rasters represent disturbances (0 if no disturbance occours, 1 if a disturbance occurs) and the last n rasters contain the time series observations}
@@ -28,6 +39,10 @@ calcRecoveryStack(st, maxBreak, obspyr, inp = "segmented",
 \item{nPostMax}{end of the post-disturbance period: number of years after the disturbance}
 
 \item{h}{h parameter of the breakpoints function in the strucchange package}
+
+\item{timeThres}{only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]}
+
+\item{slpThres}{only relevant for segmentation:threshold on the pre-disturbance slope}
 }
 \value{
 a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment

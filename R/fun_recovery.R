@@ -83,13 +83,15 @@ calcFrazier <- function(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin
 #' @param nPostMax If shortDenseTS is TRUE, max number of years after the disturbance used to quantify the recovery
 #' @param tdist the timing of the disturbance [observation number]
 #' @param maxBreak only for recovery indicators derived from segmented time series: if maxbreak is true, the maximum break in the segmented series is used as disturbance date to calculate the recovery indicators. If maxbreak is false, the break closest to the provided disturbance timing is used to calculate recovery.
+#' @param timeThres threshold on the duration between the disturbance date and date of the detected break [years]
+#' @param slpThres threshold on the pre-disturbance slope
 #'
 #' @return a list containing  the RRI, R80p, YrYr recovery indicator derived from the BFAST0n trend segments and slope of the trend segment after the disturbance (sl).
 #' @export
 #' @import strucchange
 #' @import stats
 #' @import bfast
-calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax){
+calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, slpThres){
   # Create time series object, needed as input for BFAST
   tsi <- ts(tsio, frequency = obspyr)
   # Convert the time series object into a dataframe, needed for the breakpoints function
@@ -103,8 +105,8 @@ calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDi
       if(is.na(bp$breakpoints[1])){# no breakpoint found
         # tr <- fitted(bp, 0)
         # sl <- (tr[2] - tr[1])
-        frz <- list(NA, NA, NA, NA)
-        names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl')
+        frz <- list(NA, NA, NA, NA, NA, NA)
+        names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl', 'loglik', 'AIC')
       }else{# at least one breakpoint found
         # Extract BFAST trend component and breaks
         cf <- coef(bp)
@@ -113,14 +115,21 @@ calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDi
         #tr <- rep(NA,length(tsi))
         indna <- which(is.na(tsi)==F)
         tbp <- indna[tbp]   # correct observation number for missing values
+        totbp <- tbp
+
         #Derive trend component without missing values
         bpf <- c(0, tbp, length(tsi))
         trf <- rep(NA,length(tsi))
         for(ti in 1:(length(bpf)-1)){
           trf[(bpf[ti]+1):bpf[ti+1]] <- cf[ti,1] + ((cf[ti,2]*((bpf[ti]+1):bpf[ti+1])))
         }
-        # Find the major break
+
+        # Get information criteria
+        bp_loglik <- logLik(bp)
+        bp_aic <- AIC(bp)[length(tbp) + 1]
+
         if(maxBreak){
+          # Find the major break
           dbr <- trf[tbp+1]-trf[tbp]
           tbp <- tbp[which(abs(dbr) == max(abs(dbr)))]
         }else{
@@ -128,16 +137,47 @@ calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDi
           dbr <- tbp-tdist
           tbp <- tbp[which(abs(dbr) == min(abs(dbr)))]
         }
-        # Calculate Frazier recovery metrics on BFAST trend component
-        frz <- calcFrazier(as.numeric(trf), (tbp+1), floor(obspyr), shortDenseTS, nPre, nDist, nPostMin, nPostMax)
-        # Calculate the post-disturbance slope of the BFAST trend component (first segment after break)
-        sl <- (trf[tbp+3] - trf[tbp+2])
-        frz <- c(frz, sl)
-        names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl')
+
+        # check the time period between the break and the fire
+        timeChck <- ((min(abs(dbr))/obspyr) < timeThres)
+
+        # check the typology of the segments:
+        # constant pre-disturbance period
+        preChck <- (abs(trf[tbp] - trf[tbp-1]) < slpThres)
+        # positive post-disturbance slope
+        postChck <- ((trf[tbp+3] - trf[tbp+2]) > 0)
+        # negative break
+        distChck <- ((trf[tbp+1] - trf[tbp]) < 0)
+        # no negative break in recovery period with strong slope after the break
+        brkthres <- 1+switch((1+shortDenseTS),5,nPostMax)*obspyr #post-disturbance period used to assess recovery
+        if(any((totbp>tbp) & (totbp<(brkthres+tbp)))){
+          postbr <- totbp[(totbp>tbp) & (totbp<(brkthres+tbp))]
+          postdbr <- trf[postbr+1]-trf[postbr]
+          postsl <- trf[postbr+3]-trf[postbr+2]
+          brkChck <- !any((postdbr<0) & (postsl>slpThres))#
+        }else{
+          brkChck <- TRUE
+        }
+
+        if(timeChck & preChck & postChck & distChck & brkChck){
+          # Calculate Frazier recovery metrics on BFAST trend component
+          frz <- calcFrazier(as.numeric(trf), (tbp+1), floor(obspyr), shortDenseTS, nPre, nDist, nPostMin, nPostMax)
+          # Calculate the post-disturbance slope of the BFAST trend component (first segment after break)
+          sl <- (trf[tbp+3] - trf[tbp+2])# Calculate Frazier recovery metrics on BFAST trend component
+          frz <- calcFrazier(as.numeric(trf), (tbp+1), floor(obspyr), shortDenseTS, nPre, nDist, nPostMin, nPostMax)
+          # Calculate the post-disturbance slope of the BFAST trend component (first segment after break)
+          sl <- (trf[tbp+3] - trf[tbp+2])
+          frz <- c(frz, sl, bp_loglik, bp_aic)
+          names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl', 'loglik', 'AIC')
+
+        }else{
+          frz <- list(NA, NA, NA, NA, NA, NA)
+          names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl', 'loglik', 'AIC')
+        }
       }
     }else{
-      frz <- list(NA, NA, NA, NA)
-      names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl')
+      frz <- list(NA, NA, NA, NA, NA, NA)
+      names(frz) <- c('RRI', 'R80P', 'YrYr', 'Sl', 'loglik', 'AIC')
     }
 
     frz
@@ -155,12 +195,14 @@ calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDi
 #' @param nPostMin start of the post-disturbance period: number of years after the disturbance
 #' @param nPostMax end of the post-disturbance period: number of years after the disturbance
 #' @param h h parameter of the breakpoints function in the strucchange package
+#' @param timeThres only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]
+#' @param slpThres only relevant for segmentation:threshold on the pre-disturbance slope
 #'
 #' @return the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 #' @export
 #' @import stats
 calcRecoveryTS <- function(tsi, maxBreak, obspyr, inp = 'segmented', shortDenseTS = TRUE,
-                         nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15){
+                         nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres, slpThres){
   # if (frq == 'annual'){
   #   #convert time series to annual values by selecting date closest to seasonal max
   #   tsi <- toAnnualTS(tsseas, tsi, obspyr)
@@ -183,6 +225,7 @@ calcRecoveryTS <- function(tsi, maxBreak, obspyr, inp = 'segmented', shortDenseT
       }
     }
     tdist <- tdist[which(abs(dbr) == max(abs(dbr)))]
+    mval <- sum(is.na(tsi))/length(tsi) #fraction of missing values
 
     if (inp == 'smoothed'){
       df <- data.frame(dat = tsi,tm = 1:length(tsi))
@@ -193,13 +236,13 @@ calcRecoveryTS <- function(tsi, maxBreak, obspyr, inp = 'segmented', shortDenseT
 
     if((inp == 'smoothed') | (inp == 'raw')){
       tmp <- calcFrazier(tsi, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
-      outp <- c(tmp$RRI,tmp$R80P, tmp$YrYr, NA)
+      outp <- c(tmp$RRI,tmp$R80P, tmp$YrYr, NA,mval,NA,NA)
     }
     if(inp == 'segmented'){
-      tmp <- calcSegRec(tsi, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
-      outp <- c(tmp$RRI,tmp$R80P, tmp$YrYr, tmp$Sl)
+      tmp <- calcSegRec(tsi, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, slpThres)
+      outp <- c(tmp$RRI,tmp$R80P, tmp$YrYr, tmp$Sl, mval, tmp$loglik, tmp$AIC)
     }
-  }else{outp <- c(NA,NA,NA,NA)}
+  }else{outp <- c(NA,NA,NA,NA,NA,NA,NA)}
   outp
 }
 
@@ -215,24 +258,26 @@ calcRecoveryTS <- function(tsi, maxBreak, obspyr, inp = 'segmented', shortDenseT
 #' @param nPostMin start of the post-disturbance period: number of years after the disturbance
 #' @param nPostMax end of the post-disturbance period: number of years after the disturbance
 #' @param h h parameter of the breakpoints function in the strucchange package
+#' @param timeThres only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]
+#' @param slpThres only relevant for segmentation:threshold on the pre-disturbance slope
 #'
 #' @return a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 #' @export
 #'
 calcRecoveryStack <- function(st, maxBreak, obspyr, inp = 'segmented', shortDenseTS = TRUE,
-                              nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15) {
+                              nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres, slpThres) {
 
   # only consider time series with a mask value of 1
   msk <- (st[,1] == 1)
   st <- st[,-1]
-  out <- matrix(NA, length(msk), 4)
+  out <- matrix(NA, length(msk), 7)
   if(sum(msk)>1){
     out[msk,] <- t(apply(st[msk,], 1, calcRecoveryTS, maxBreak=maxBreak, obspyr=obspyr, inp=inp, shortDenseTS=shortDenseTS,
-                         nPre=nPre, nDist=nDist, nPostMin=nPostMin, nPostMax=nPostMax, h=h))
+                         nPre=nPre, nDist=nDist, nPostMin=nPostMin, nPostMax=nPostMax, h=h, timeThres, slpThres))
   }
   if(sum(msk)==1){
     out[msk,] <- calcRecoveryTS(st[msk,], maxBreak, obspyr, inp, shortDenseTS,
-                              nPre, nDist, nPostMin, nPostMax, h)
+                              nPre, nDist, nPostMin, nPostMax, h, timeThres, slpThres)
   }
   out
 }
