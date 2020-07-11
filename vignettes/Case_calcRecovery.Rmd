@@ -12,190 +12,152 @@ vignette: >
 ```{r setup, include=FALSE}
   knitr::opts_chunk$set(echo = TRUE, eval=F)
 ```
+# General
+This vignette assumes that a data cube with ARD (level2) Landsat (and/or S2) data has been built using FORCE. In addition a mask to select disturbed pixels (have value 1) and fire data (data have value 1 if a fire is present and a value 0 if no fire occurred) are present.
 
-# Load required libraries
+## Load required libraries
 ```{r}
 library(raster)
-library(ff)
+# library(ff)
 library(UpscaleRecovery)
+library(stars)
 ```
 
-# Inputs
-```{r}
-ifolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\' # directory with NBR data
-ofolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\' # directory where the recovery indicators and temporary outputs will be saved
-firefolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CCI_fire\\' #'\\\\WURNET.NL\\Homes\\keers001\\AppData\\FolderRedirection\\Desktop\\cci_fire2\\' 
-# directory where the fire data are stored
-
-tsfile <- 'LSTS_SantaRem_area2_2000_2020'# name of the file with NBR time series
-metafile <- 'LSTS_meta_SantaRem_area2_2000_2020'# metadata file of the NBR time series
-firefile <- 'LSTS_FireArea_SantaRem_area2_2000_2020'# name of the file with the fire mask
-
-tempRes <- 'quart' # daily, annual, monthly, or quart (yearly data not supported yet!)
-tempFun <- 'max' # max or mean (function used for temporal aggregation of data)
-timeThres <- 2 # in case of segmentations, the time period between the detected break and the disturbance should be less than timeThres years
-slpThres <- 2 # the slope of the pre-disturbance period should be less than slpThres
-
-# settings of the derived recovery indicators
-# input: refers to the tine series pre-processing: raw (=no preprocessing), smoothed or segmented
-# h: This parameter defines the minimal segment size either given as fraction relative to the sample size or as an integer giving the minimal number of observations in each segment.
-# shortDenseTS: TRUE or FALSE. In case TRUE, the metrics are adjusted to be compatible with short, dense time series. In case FALSE, the input time series is assumed to have annual observations and at least 2 and 5 pre- and post-disturbance years, respectively.
-# nPre: If shortDenseTS is TRUE, number of years prior to the disturbance used to calculate the pre-disturbance value
-# nDist: If shortDenseTS is TRUE, number of months used to quantify the time series value during the disturbance
-# nPostMin: If shortDenseTS is TRUE, min number of years after the disturbance used to quantify the recovery
-# nPostMax: If shortDenseTS is TRUE, max number of years after the disturbance used to quantify the recovery
-# tdist: the timing of the disturbance [observation number]
-
-if((tempRes == 'monthly') || (tempRes == 'daily')){
-  funSet <- list('input' = c('raw', 'smoothed', 'segmented', 'raw', 'smoothed', 'segmented'),# settings for the recovery indicators
-                 'shortDenseTS' = c( TRUE, TRUE, TRUE, TRUE, TRUE, TRUE),
-                 'nPre' = c(2,2,2,2,2,2),
-                 'nDist' = c(1,1,1,12,12,12),
-                 'nPostMin' = c(0,0,0,4,4,4),
-                 'nPostMax' = c(1,1,1,6,6,6),
-                 'h' = c(0.15,0.15,0.15,0.15,0.15,0.15))
-} else if (tempRes == 'annual'){
-  funSet <- list('input' = c('raw'),# settings for the recovery indicators
-                 'shortDenseTS' = c( FALSE),
-                 'nPre' = c(2),
-                 'nDist' = c(12),
-                 'nPostMin' = c(4),
-                 'nPostMax' = c(6),
-                 'h' = c(0.15))
-}
-
-```
-
-# Import data
-```{r}
-br <- stack(paste0(ifolder,tsfile,'.tif'))# the data stack containing the vegetation response
-br <- br[[-1]] # the first image is redundant, artefact from the GEE download script
-meta <- read.csv(paste0(ifolder,metafile,'.csv'))# metadata associated with the image stack
-dts <- as.Date(meta$system_time_start[-1],'%Y,%m,%d')# observation dates of the image stack
-fre <- raster(paste0(ifolder,firefile,'.tif'))# raster of areas that experienced a fire (those have a value > 0)
-fcl <- loadRData( file = file.path(firefolder, 'ESACCI-L3S_FIRE-BA-MODIS-AREA_2-fv5.1-CL-01-18.rda'))# fire confidence
-fjd <- loadRData( file = file.path(firefolder, 'ESACCI-L3S_FIRE-BA-MODIS-AREA_2-fv5.1-JD-01-18.rda'))# fire day of year (doy)
-```
-
-# Resampling fire data at ca 30m spatial resolution
-General preprocessing of the data: change the spatial resolution and extent
-```{r}
-# crop and change spatial resolution of fire stack
-fcl30 <- crop(fcl,extent(br))# change extent of the image stack
-fcl30 <- resample(fcl30, br, method="ngb")#resample
-
-fjd30 <- crop(fjd,extent(br))
-fjd30 <- resample(fjd30, br, method="ngb")
-
-# # Locations that experienced fire 
-freloc <- (fre > 0) # areas that have experienced a fire get the value 1, other areas the value 0
-
-# date vector associated with the fire stack
-fdts<- as.Date(names(fcl), format = "X%Y%m%d") # dates associated with the fire data stack
-
-# generate an image stack containing regular fire time series at the predefined temporal resolution with value 1 if a fire occured and 0 if no fire occured
-tsFire <- calc(stack(freloc,fcl30, fjd30), function(x){createFireStack(x, dts = fdts, resol = tempRes, thres = 95)}, filename = paste0(ofolder, tsfile, '_Fire_', tempRes),overwrite=TRUE)
-
-```
-
-# Preprocess NBR data
-Create regular time series
-```{r}
-# get the dates of the time series observations
-names(br) <- dts
-dts <- as.Date(dts, format = "X%Y.%m.%d") ## needed as input in the helper function of get_m_agg
-
-# Create regular time series 
-tsbr <- calc(stack(freloc,br), function(x){toRegularTSStack(x, dts, fun = tempFun, resol = tempRes)}, filename = paste0(ofolder, tsfile, '_', tempRes, '_', tempFun), overwrite=TRUE)
 
 
-```
 
-# Preprocess fire data 
-The fire data are converted to the right temporal resolution and its representation is adjusted (value 0 represents no fire and 1 a fire)
-```{r}
-# e <-  drawExtent()
-# fst <- crop(stack(freloc,fcl30,fjd30),e)
 
-# convert the fire data to a regular time series with same temporal resolution as the NBR series. Here, observations during fire events get the value 1 and other observations the value 0
 
-tsFire <- calc(stack(freloc,fcl30,fjd30), function(x){createFireStack(x, fdts, resol = tempRes, thres = 95)}, filename = paste0(ofolder, tsfile, '_Fire_', tempRes), overwrite=TRUE)
 
-# get the dates of the nbr and fire stacks
-if(tempRes == 'monthly'){
-  dtsbr <- seq(min(dts), max(dts), by = "1 month")#"1 day"
-  dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
-  dtsfr <- fdts
-  dtsfr <- rollback(dtsfr, roll_to_first = TRUE, preserve_hms = TRUE)
-}
-save(dtsfr, file = file.path(ofolder, paste0(tsfile, '_Firedts_', tempRes)))
-save(dtsbr, file = file.path(ofolder, paste0(tsfile, '_dts_', tempRes, '_', tempFun)))
 
-```
 
-# Plot time series
-Here, an example of a time series with fire is plotted
-```{r}
-# load time series
-tsbr <- stack(paste0(ofolder, tsfile, '_', tempRes, '_', tempFun, '.gri'))
-tsFire <- stack(paste0(ofolder, tsfile, '_Fire_', tempRes, '.gri'))
+<!-- # Inputs -->
+<!-- ```{r} -->
+<!-- ifolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\' # directory with NBR data -->
 
-# find a pixel that experienced a fire
-fireind <- Which(freloc>0, cells = T)
-ii <- fireind[20]
+<!-- tempRes <- 'monthly' # daily, annual, monthly, or quart (yearly data not supported yet!) -->
+<!-- tempFun <- 'max' # max or mean (function used for temporal aggregation of data) -->
+<!-- timeThres <- 2 # in case of segmentations, the time period between the detected break and the disturbance should be less than timeThres years -->
+<!-- slpThres <- 2 # the slope of the pre-disturbance period should be less than slpThres -->
 
-# get the time series from the stack 
-tsii <- as.numeric(tsbr[ii])
-frii <- as.numeric(tsFire[ii])
+<!-- if((tempRes == 'monthly') || (tempRes == 'daily')){ -->
+<!--   funSet <- list('input' = c('raw', 'smoothed', 'segmented', 'raw', 'smoothed', 'segmented'),# settings for the recovery indicators -->
+<!--                  'shortDenseTS' = c( TRUE, TRUE, TRUE, TRUE, TRUE, TRUE), -->
+<!--                  'nPre' = c(2,2,2,2,2,2), -->
+<!--                  'nDist' = c(1,1,1,12,12,12), -->
+<!--                  'nPostMin' = c(0,0,0,4,4,4), -->
+<!--                  'nPostMax' = c(1,1,1,6,6,6), -->
+<!--                  'h' = c(0.15,0.15,0.15,0.15,0.15,0.15)) -->
+<!-- } else if (tempRes == 'annual'){ -->
+<!--   funSet <- list('input' = c('raw'),# settings for the recovery indicators -->
+<!--                  'shortDenseTS' = c( FALSE), -->
+<!--                  'nPre' = c(2), -->
+<!--                  'nDist' = c(12), -->
+<!--                  'nPostMin' = c(4), -->
+<!--                  'nPostMax' = c(6), -->
+<!--                  'h' = c(0.15)) -->
+<!-- } -->
 
-# plot time series
-plot(zoo(tsii,dtsbr))
-lines(zoo(frii,dtsfr), col = 'red')
+<!-- ``` -->
 
-```
 
-# Create total stack
+<!-- # Preprocess NBR data -->
+<!-- Create regular time series -->
+<!-- ```{r} -->
+<!-- # get the dates of the time series observations -->
+<!-- names(br) <- dts -->
+<!-- dts <- as.Date(dts, format = "X%Y.%m.%d") ## needed as input in the helper function of get_m_agg -->
 
-Make sure the the fire and NBR stack cover the same time period and merge both stacks
-```{r}
-# ensure that the two stacks cover the same time period 
+<!-- # Create regular time series  -->
+<!-- tsbr <- calc(stack(freloc,br), function(x){toRegularTSStack(x, dts, fun = tempFun, resol = tempRes)}, filename = paste0(ofolder, tsfile, '_', tempRes, '_', tempFun), overwrite=TRUE) -->
 
-# get the start and end date of the overlap period
-startdt <- max(c(min(dtsbr), min(dtsfr)))
-enddt  <- min(c(max(dtsbr), max(dtsfr)))
 
-# clip the stacks to the overlap period
-indbr  <- which((dtsbr > (startdt-1)) & (dtsbr < (enddt+1)))
-indfr  <- which((dtsfr > (startdt-1)) & (dtsfr < (enddt+1)))
+<!-- ``` -->
 
-finbr <- tsbr[[indbr]]
-finfr <- tsFire[[indfr]]
+<!-- # Preprocess fire data  -->
+<!-- The fire data are converted to the right temporal resolution and its representation is adjusted (value 0 represents no fire and 1 a fire) -->
+<!-- ```{r} -->
+<!-- # e <-  drawExtent() -->
+<!-- # fst <- crop(stack(freloc,fcl30,fjd30),e) -->
 
-# # combine mask, fire and nbr stacks into one stack
-st <- stack(freloc, finfr, finbr)
-```
+<!-- # convert the fire data to a regular time series with same temporal resolution as the NBR series. Here, observations during fire events get the value 1 and other observations the value 0 -->
 
-# Calculate recovery indicators
-Four recovery indicators are computed: the RRI, R80P, YrYr and the slope of the post-disturbance segment
-```{r}
-# calculate stability indicators
-# RRI,R80P, YrYr, Sl
+<!-- tsFire <- calc(stack(freloc,fcl30,fjd30), function(x){createFireStack(x, fdts, resol = tempRes, thres = 95)}, filename = paste0(ofolder, tsfile, '_Fire_', tempRes), overwrite=TRUE) -->
 
-for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recovery indicators
-  # get the correct number of observations per year
-   if(tempRes == 'monthly') {
-    obspyr = 12} else if(tempRes == 'daily'){obspyr = 365}else if(tempRes == 'annual'){obspyr = 1}
-  
-  # calculate the recovery indicators
-  out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS = funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist = funSet$nDist[i], nPostMin = funSet$nPostMin[i],
-                                                nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)}, 
-              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_', funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i], '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' , funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres), overwrite=TRUE)
-}
+<!-- # get the dates of the nbr and fire stacks -->
+<!--   dtsbr <- as.Date(toRegularTS(dts, dts, fun='max', resol = tempRes)) -->
+<!--   dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE) -->
+<!--   dtsfr <- as.Date(toRegularTS(fdts, fdts, fun='max', resol = tempRes)) -->
+<!--   dtsfr <- rollback(dtsfr, roll_to_first = TRUE, preserve_hms = TRUE) -->
 
-```
+<!-- save(dtsfr, file = file.path(ofolder, paste0(tsfile, '_Firedts_', tempRes))) -->
+<!-- save(dtsbr, file = file.path(ofolder, paste0(tsfile, '_dts_', tempRes, '_', tempFun))) -->
 
-```{r, include=FALSE}
-stab <- stack(file.path(ofolder,'LSTS_SantaRem_area2_2000_2020_Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_1_nPostMin_0_nPostMax_1_h_15.gri'))
-plot(stab[[1]])
-```
+<!-- ``` -->
+
+<!-- # Plot time series -->
+<!-- Here, an example of a time series with fire is plotted -->
+<!-- ```{r} -->
+<!-- # load time series -->
+<!-- tsbr <- stack(paste0(ofolder, tsfile, '_', tempRes, '_', tempFun, '.gri')) -->
+<!-- tsFire <- stack(paste0(ofolder, tsfile, '_Fire_', tempRes, '.gri')) -->
+
+<!-- # find a pixel that experienced a fire -->
+<!-- fireind <- Which(freloc>0, cells = T) -->
+<!-- ii <- fireind[20] -->
+
+<!-- # get the time series from the stack  -->
+<!-- tsii <- as.numeric(tsbr[ii]) -->
+<!-- frii <- as.numeric(tsFire[ii]) -->
+
+<!-- # plot time series -->
+<!-- plot(zoo(tsii,dtsbr)) -->
+<!-- lines(zoo(frii,dtsfr), col = 'red') -->
+
+<!-- ``` -->
+
+<!-- # Create total stack -->
+
+<!-- Make sure the the fire and NBR stack cover the same time period and merge both stacks -->
+<!-- ```{r} -->
+<!-- # ensure that the two stacks cover the same time period  -->
+
+<!-- # get the start and end date of the overlap period -->
+<!-- startdt <- max(c(min(dtsbr), min(dtsfr))) -->
+<!-- enddt  <- min(c(max(dtsbr), max(dtsfr))) -->
+
+<!-- # clip the stacks to the overlap period -->
+<!-- indbr  <- which((dtsbr > (startdt-1)) & (dtsbr < (enddt+1))) -->
+<!-- indfr  <- which((dtsfr > (startdt-1)) & (dtsfr < (enddt+1))) -->
+
+<!-- finbr <- tsbr[[indbr]] -->
+<!-- finfr <- tsFire[[indfr]] -->
+
+<!-- # # combine mask, fire and nbr stacks into one stack -->
+<!-- st <- stack(freloc, finfr, finbr) -->
+<!-- ``` -->
+
+<!-- # Calculate recovery indicators -->
+<!-- Four recovery indicators are computed: the RRI, R80P, YrYr and the slope of the post-disturbance segment -->
+<!-- ```{r} -->
+<!-- # calculate stability indicators -->
+<!-- # RRI,R80P, YrYr, Sl -->
+
+<!-- for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recovery indicators -->
+<!--   # get the correct number of observations per year -->
+<!--    if(tempRes == 'monthly') { -->
+<!--     obspyr = 12} else if(tempRes == 'daily'){obspyr = 365}else if(tempRes == 'annual'){obspyr = 1} -->
+
+<!--   # calculate the recovery indicators -->
+<!--   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS = funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist = funSet$nDist[i], nPostMin = funSet$nPostMin[i], -->
+<!--                                                 nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)},  -->
+<!--               filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_', funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i], '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' , funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres), overwrite=TRUE) -->
+<!-- } -->
+
+<!-- ``` -->
+
+<!-- ```{r, include=FALSE} -->
+<!-- stab <- stack(file.path(ofolder,'LSTS_SantaRem_area2_2000_2020_Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_1_nPostMin_0_nPostMax_1_h_15.gri')) -->
+<!-- plot(stab[[1]]) -->
+<!-- ``` -->
 

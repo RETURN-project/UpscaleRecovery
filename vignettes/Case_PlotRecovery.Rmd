@@ -279,3 +279,104 @@ dtsbr <- seq(min(dts), max(dts), by = "1 month")#"1 day"
 
 
 ```
+
+```{r}
+ste <- 2
+stm <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_monthly_max.gri')))
+frm <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Fire_monthly.gri')))
+dtsm <- loadRData(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_dts_monthly_max')))
+dtsfm <- loadRData(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Firedts_monthly')))
+stq <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_quart_max.gri')))
+frq <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Fire_quart.gri')))
+dtsq <- loadRData(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_dts_quart_max')))
+dtsfq <- loadRData(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Firedts_quart')))
+
+# get the start and end date of the overlap period
+  startdt <- max(c(min(dtsm), min(dtsfm)))
+  enddt  <- min(c(max(dtsm), max(dtsfm)))
+  dtsst <- seq(startdt, enddt, by = "1 month")#"1 day"
+  
+  # clip the stacks to the overlap period
+  indbr  <- which((dtsm > (startdt-1)) & (dtsm < (enddt+1)))
+  indfr  <- which((dtsfm > (startdt-1)) & (dtsfm < (enddt+1)))
+  
+  stm <- stm[[indbr]]
+  frm <- frm[[indfr]]
+  
+  # get the start and end date of the overlap period
+  startdt <- max(c(min(dtsq), min(dtsfq)))
+  enddt  <- min(c(max(dtsq), max(dtsfq)))
+  dtsst <- seq(startdt, enddt, by = "1 month")#"1 day"
+  
+  # clip the stacks to the overlap period
+  indbr  <- which((dtsq > (startdt-1)) & (dtsq < (enddt+1)))
+  indfr  <- which((dtsfq > (startdt-1)) & (dtsfq < (enddt+1)))
+  
+  stq <- stq[[indbr]]
+  frq <- frq[[indfr]]
+  
+  
+  
+
+stab <- stack(file.path(ofolder, paste0(basename[1],ste, basename[2],'.gri')))
+
+si <- 1
+
+qu <- as.numeric(quantile(stab[[si]] , probs = c(0.001,0.25,0.5,0.75,0.999), na.rm = T))
+    tsmii <- matrix(NA,5,dim(stm)[3])
+    frmii <- matrix(NA,5,dim(frm)[3])
+    trmii <- matrix(NA,5,dim(stm)[3])
+    tsqii <- matrix(NA,5,dim(stq)[3])
+    frqii <- matrix(NA,5,dim(frq)[3])
+    trqii <- matrix(NA,5,dim(stq)[3])
+    
+    for (ii in 1:5){# levels of the recovery index
+      minind <- Which(abs(stab[[si]] - qu[ii]) == minValue(abs(stab[[si]] - qu[ii])), cells=T)
+      tsmii[ii,] <- as.numeric(stm[minind[1]])
+      frmii[ii,] <- as.numeric(frm[minind[1]])
+      
+      tmp <- ts(tsmii[ii,], frequency = 12)
+      datapp <- bfastpp(tmp, order = 1, lag = NULL, slag = NULL,
+                        na.action = na.omit, stl = 'none')
+      bp <- breakpoints(response ~ trend, data = datapp, h = 0.15)
+      # Extract BFAST trend component and breaks
+      cf <- coef(bp)
+      tbp <- bp$breakpoints #observation number of break
+      indna <- which(is.na(tmp)==F)
+      tbp <- indna[tbp]   # correct observation number for missing values
+      #Derive trend component without missing values
+      bpf <- c(0, tbp, length(tmp))
+      trf <- rep(NA,length(tmp))
+      for(ti in 1:(length(bpf)-1)){
+        trf[(bpf[ti]+1):bpf[ti+1]] <- cf[ti,1] + ((cf[ti,2]*((bpf[ti]+1):bpf[ti+1])))
+      }
+      trmii[ii,] <- trf
+      
+      tsqii[ii,] <- as.numeric(stq[minind[1]])
+      # frqii[ii,] <- as.numeric(frq[minind[1]])
+      
+      tmp <- ts(tsqii[ii,], frequency = 4)
+      datapp <- bfastpp(tmp, order = 1, lag = NULL, slag = NULL,
+                        na.action = na.omit, stl = 'none')
+      bp <- breakpoints(response ~ trend, data = datapp, h = 0.15)
+      # Extract BFAST trend component and breaks
+      cf <- coef(bp)
+      tbp <- bp$breakpoints #observation number of break
+      indna <- which(is.na(tmp)==F)
+      tbp <- indna[tbp]   # correct observation number for missing values
+      #Derive trend component without missing values
+      bpf <- c(0, tbp, length(tmp))
+      trf <- rep(NA,length(tmp))
+      for(ti in 1:(length(bpf)-1)){
+        trf[(bpf[ti]+1):bpf[ti+1]] <- cf[ti,1] + ((cf[ti,2]*((bpf[ti]+1):bpf[ti+1])))
+      }
+      trqii[ii,] <- trf
+    }
+    
+
+    plot(zoo(tsmii[1,],dtsm), type = 'o')
+    lines(zoo(trmii[1,],dtsm), col = 'red')
+    lines(zoo(tsqii[1,],dtsq), col = 'green', type = 'o')
+    lines(zoo(trqii[1,],dtsq), col = 'blue')
+  
+```
