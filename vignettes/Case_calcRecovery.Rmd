@@ -23,8 +23,114 @@ library(UpscaleRecovery)
 library(stars)
 ```
 
+##
+```{r}
+forcefolder <- '/home/wanda/Documents/data/force/'
+l2folder <- 'level2/s-america/X0058_Y0025/'
+img <- list.files(file.path(forcefolder,l2folder),'*_BOA.tif')
+st <- read_stars(file.path(forcefolder,l2folder,img), along = 'Date', proxy = T)
+dts <- as.Date(substr(img, 1,8),'%Y%m%d')
+st = st_set_dimensions(st, 4, values = dts, names = "time")
+st <- setNames(st,'Landsat')
+
+# tst <- read_stars(file.path(forcefolder,l2folder,img[1:2]), along = 'Date', proxy = F)
+
+frimg <- list.files(file.path(forcefolder,l2folder),'fire_X')
+fr <- read_stars(file.path(forcefolder,l2folder,frimg[60:61]), along = 'Date', proxy = F)
+frdts <- as.Date(substr(frimg,7,16),'%Y_%m_%d')
+fr = st_set_dimensions(fr, 3, values = frdts, names = "time")
+fr <- setNames(fr,'Fire')
+
+fr60 <- raster(file.path(forcefolder,l2folder,frimg[60]))
+selfr <- raster::Which(fr60==1, cells = T)
+
+msk <- raster(file.path(forcefolder,l2folder,'mask.tif'))
+sel <- raster::Which(msk==1, cells = T)
 
 
+fr <- read_stars(c(file.path(forcefolder,l2folder,'mask.tif'),file.path(forcefolder,l2folder,frimg[60:61])), along = 'Date', proxy = F)
+
+out <- st_apply(fr, 1:2, tstfun)
+poi <- fr#[,,,1]
+poi[[1]][poi[,,,1][[1]]!=1] = NA
+p = st_as_sf(poi, as_points = T)
+pn <- as.matrix(p)
+
+
+# 
+# st_extract(fr,pts = p, method = 'near')
+# 
+# selrc <- ind2rc(selfr[10],dim(msk)[1],dim(msk)[2])
+# frm <- as.matrix(fr60)
+# frm[selfr[10]]
+# fr[1,,,][[1]][selrc[1], selrc[2],1]
+# 
+# as.numeric(fr[1,,,][[1]][c(getIndex(c(selrc,60),dim(fr)),
+#                                     getIndex(c(selrc,61),dim(fr)))])
+# plot(1:2,as.numeric(fr[1,,,][[1]][c(getIndex(c(selrc,60),dim(fr)),
+#                                     getIndex(c(selrc,61),dim(fr)))]))
+# 
+
+# st[1,1:5,1:4,1:2][[1]]
+# c(selrc[1],selrc[2],2)
+# tst <- read_stars(c('/home/wanda/Documents/data/force/level2/mosaic/20001107_LEVEL2_LND05_BOA.vrt',
+#                     '/home/wanda/Documents/data/force/level2/mosaic/20010331_LEVEL2_LND05_BOA.vrt'),
+#                   along = 'Date',
+#                   proxy=F)
+# tst <- read_stars(c("/home/wanda/Documents/data/force/temp/LC08_L1TP_228069_20160722_20170322_01_T1/LC08_L1TP_228069_20160722_20170322_01_T1_B4.TIF",
+#                    "/home/wanda/Documents/data/force/temp/LC08_L1TP_228069_20180509_20180517_01_T1/LC08_L1TP_228069_20180509_20180517_01_T1_B4.TIF"), along = "Date", proxy = F)
+
+# rst1 <- raster(vals = runif(12),nrows = 3, ncols = 4)
+# rst2 <- raster(vals = runif(12),nrows = 3, ncols = 4)
+# 
+# writeRaster(rst1,'/home/wanda/Documents/data/force/temp/rst1.tif')
+# writeRaster(rst2,'/home/wanda/Documents/data/force/temp/rst2.tif')
+# 
+# tmsk <- raster(vals = c(1,1,0,0,1,0,1,1,0,0,0,1),nrows = 3, ncols = 4)
+# 
+# tst <- read_stars(c('/home/wanda/Documents/data/force/temp/rst1.tif', '/home/wanda/Documents/data/force/temp/rst2.tif'), along='Date',proxy = F)
+# 
+# out <- st_apply(tst, 'Date', mean)
+# out[1,,][[1]]
+# 
+# tst[1,,,1:2][[1]][c(2,14)]
+# tst1 <- raster('/home/wanda/Documents/data/force/temp/rst1.tif')
+# Which(tst1>0.9, cells = T)
+# selrc <- c(2,1)
+# tsty <- c(0.75,0.79)
+# tsty <- as.numeric(tst[1,,,][[1]][c(getIndex(c(selrc,1),dim(tst)),
+#                                     getIndex(c(selrc,2),dim(tst)))])
+# tst[1,,,][[1]][2,1,1:2]
+# plot(c(1,2),tsty)
+# 
+# 
+# d <- c(2,3,2)
+# D <- c(4,3,2)
+# 
+# ind2rc(5,4,5)
+# 
+# ind2rc<- function(ind,D1,D2){
+#   d2 <- ceiling(ind/D1)
+#   d1 <- ind - (D1*(d2-1))
+#   c(d1,d2)
+# }
+# getIndex <- function(d,D){
+#   cp <- c(1,cumprod(D))
+#   cp<- cp[-length(cp)]
+#   co <- d-1
+#   co[1] <- d[1]
+#   ind <- sum(co*cp)
+#   ind
+# }
+# tst[1,,,1:2][[1]][c(getIndex(d,D))]
+# 
+# 
+# 
+# ind <- ((ri-1) * nrow) +
+# x[1,,,][[1]][c(1,5)]
+
+
+```
 
 
 
