@@ -71,9 +71,6 @@ TSdecompress <- function(ts){
 #' @import zoo
 #' @import bfast
 toRegularTS <- function(tsi, dts, fun, resol){
-  # len <- length(tsi)
-  # tdist <- tsi[1:(len/2)]
-  # tsi <- tsi[(1+(len/2)):len]
   tsi <- as.numeric(tsi)
   if(resol == 'monthly'){
     z <- zoo(tsi, dts) ## create a zoo (time) series
@@ -110,6 +107,7 @@ toRegularTS <- function(tsi, dts, fun, resol){
 toRegularTSStack <- function(x, dts, fun, resol)
 {
    msk <- x[,1]
+   msk[is.na(msk)] <- 0
    x <- x[,-1]
    mask <- apply(x, 1, FUN = function(x) { sum(is.na(x)) / length(x) } )
    i <- ((mask < 1) & (msk == 1))
@@ -208,5 +206,155 @@ toFireTS <- function(x, dts, resol, thres = 95){
   out
 }
 
+#' Calculate the Normalized Burn ratio
+#'
+#' @param NIR Near Infrored reflectance
+#' @param SWIR Shortwave Infrared reflectance
+#'
+#' @return Normalized Burn Ratio
+#' @export
+calcNBR <- function(NIR,SWIR){
+  nbr <- (NIR-SWIR)/(NIR+SWIR)
+  return(nbr)
+}
 
+#' Mask an image using its quality layer, quality parameters set the quality preferences for pixels that should NOT be masked.
+#'
+#' @param im the image that should be masked
+#' @param qaim the quality layer
+#' @param valid quality parameter - valid data, values can be 0 (valid) or 1 (no data)
+#' @param cloud quality parameter - cloud state, values can be 0 (clear), 1 (less confident cloud, i.e. buffered cloud 300m), 2 (confident, opaque cloud), or 3 (cirrus)
+#' @param shadow quality parameter - cloud shadow flag, values can be 0 (no shadow), or 1 (shadow)
+#' @param snow quality parameter - snow flag, values can be 0 (no snow), or 1 (snow)
+#' @param water quality parameter - water flag, values can be 0 (no water), or 1 (water)
+#' @param aero quality parameter - aerosol state, values can be 0 (estimated, best quality), 1 (interpolated, mid quality), 2 (high, aerosol optical depth > 0.6, use with caution)
+#' @param subzero quality parameter - subzero flag, values can be 0 (no subzero values), or 1 (subzero values)
+#' @param sat quality parameter - saturation flag, values can be 0 (no saturation), or 1 (saturation)
+#' @param sunZen quality parameter - high sun zenith flag, values can be 0 (no high sun zenith), or 1 (sun elevation < 15 degrees, use with caution)
+#' @param illum quality parameter - illumination state, values can be 0 (good, incidence angle <55°, best quality for topographic correction), 1 (medium, incidence angle 55°-80°, low quality for top. correction), 2 (poor, incidence angle > 80°, low quality for top. correction), or 3 (shadow, incidence angle > 90°, no topographic correction applied)
+#' @param slope quality parameter - slope flag, values can be 0 (cosine correction applied) or 1 (enchanced C-correction applied)
+#' @param wvp quality parameter - water vapor flag, values can be 0 (measured, best quality, only for Sentinel-2) or 1 (fill, scene average, only for Sentinel-2)
+#'
+#' @return a masked image
+#' @export
+#'
+mskQA <- function(im, qaim, valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aero = 0, subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = 0, wvp = 0){
+  # QA values of pixels that shouldn't be masked
+  toKeep <- getQAvals(valid, cloud, shadow, snow, water, aero, subzero, sat, sunZen, illum, slope, wvp)
+  # make raster with 0 values for pixels that should be masked and 1 for pixels that should be kept
+  msk <- qaim
+  msk[] <- 0
+  for(i in 1:length(toKeep)){
+    msk[qaim == toKeep[i]] <- 1
+  }
+  # mask values
+  im[msk == 0] <- NA
+  return(im)
+}
 
+#' Generate QA values for all possible combinations of quality parameter values. Here, multiple values for one parameter can be provided.
+#'
+#' @param valid quality parameter - valid data, values can be 0 (valid) or 1 (no data)
+#' @param cloud quality parameter - cloud state, values can be 0 (clear), 1 (less confident cloud, i.e. buffered cloud 300m), 2 (confident, opaque cloud), or 3 (cirrus)
+#' @param shadow quality parameter - cloud shadow flag, values can be 0 (no shadow), or 1 (shadow)
+#' @param snow quality parameter - snow flag, values can be 0 (no snow), or 1 (snow)
+#' @param water quality parameter - water flag, values can be 0 (no water), or 1 (water)
+#' @param aero quality parameter - aerosol state, values can be 0 (estimated, best quality), 1 (interpolated, mid quality), 2 (high, aerosol optical depth > 0.6, use with caution)
+#' @param subzero quality parameter - subzero flag, values can be 0 (no subzero values), or 1 (subzero values)
+#' @param sat quality parameter - saturation flag, values can be 0 (no saturation), or 1 (saturation)
+#' @param sunZen quality parameter - high sun zenith flag, values can be 0 (no high sun zenith), or 1 (sun elevation < 15 degrees, use with caution)
+#' @param illum quality parameter - illumination state, values can be 0 (good, incidence angle <55°, best quality for topographic correction), 1 (medium, incidence angle 55°-80°, low quality for top. correction), 2 (poor, incidence angle > 80°, low quality for top. correction), or 3 (shadow, incidence angle > 90°, no topographic correction applied)
+#' @param slope quality parameter - slope flag, values can be 0 (cosine correction applied) or 1 (enchanced C-correction applied)
+#' @param wvp quality parameter - water vapor flag, values can be 0 (measured, best quality, only for Sentinel-2) or 1 (fill, scene average, only for Sentinel-2)
+#'
+#' @return vector of QA values for the combinations of the given parameter values
+#' @export
+#'
+getQAvals <- function(valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aero = 0, subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = 0, wvp = 0){
+  # make all possible combinations of settings
+  cmbs <- expand.grid(valid, cloud, shadow, snow, water, aero, subzero, sat, sunZen,illum, slope, wvp)
+  names(cmbs) = c('valid', 'cloud', 'shadow', 'snow', 'water', 'aero', 'subzero', 'sat', 'sunZen', 'illum', 'slope', 'wvp')
+  # convert to dataframe
+  mcmbs <- as.data.frame(cmbs)
+  names(mcmbs) = c('valid', 'cloud', 'shadow', 'snow', 'water', 'aero', 'subzero', 'sat', 'sunZen', 'illum', 'slope', 'wvp')
+  # get QA values of all inputs
+  out <- mapply(getQA,mcmbs$valid, mcmbs$cloud, mcmbs$shadow, mcmbs$snow, mcmbs$water, mcmbs$aero, mcmbs$subzero, mcmbs$sat, mcmbs$sunZen, mcmbs$illum, mcmbs$slope, mcmbs$wvp)
+  return(out)
+}
+
+#' Generate the QA value associated with specific quality settings
+#'
+#' @param valid quality parameter - valid data, values can be 0 (valid) or 1 (no data)
+#' @param cloud quality parameter - cloud state, values can be 0 (clear), 1 (less confident cloud, i.e. buffered cloud 300m), 2 (confident, opaque cloud), or 3 (cirrus)
+#' @param shadow quality parameter - cloud shadow flag, values can be 0 (no shadow), or 1 (shadow)
+#' @param snow quality parameter - snow flag, values can be 0 (no snow), or 1 (snow)
+#' @param water quality parameter - water flag, values can be 0 (no water), or 1 (water)
+#' @param aero quality parameter - aerosol state, values can be 0 (estimated, best quality), 1 (interpolated, mid quality), 2 (high, aerosol optical depth > 0.6, use with caution)
+#' @param subzero quality parameter - subzero flag, values can be 0 (no subzero values), or 1 (subzero values)
+#' @param sat quality parameter - saturation flag, values can be 0 (no saturation), or 1 (saturation)
+#' @param sunZen quality parameter - high sun zenith flag, values can be 0 (no high sun zenith), or 1 (sun elevation < 15 degrees, use with caution)
+#' @param illum quality parameter - illumination state, values can be 0 (good, incidence angle <55°, best quality for topographic correction), 1 (medium, incidence angle 55°-80°, low quality for top. correction), 2 (poor, incidence angle > 80°, low quality for top. correction), or 3 (shadow, incidence angle > 90°, no topographic correction applied)
+#' @param slope quality parameter - slope flag, values can be 0 (cosine correction applied) or 1 (enchanced C-correction applied)
+#' @param wvp quality parameter - water vapor flag, values can be 0 (measured, best quality, only for Sentinel-2) or 1 (fill, scene average, only for Sentinel-2)
+#'
+#' @return QA value for the given parameter value setting
+#' @export
+#'
+getQA <- function(valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aero = 0, subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = 0, wvp = 0){
+  # convert the two bit numbers
+  bcloud <- paste(as.numeric(intToBits(cloud)[1:2]), collapse = '')
+  baero <- paste(as.numeric(intToBits(aero)[1:2]), collapse = '')
+  billum <- paste(as.numeric(intToBits(illum)[1:2]), collapse = '')
+  # combine bits to bitword
+  bitword <- paste0(0,wvp,slope,billum,sunZen,sat,subzero,baero,water,snow,shadow,bcloud, valid)
+  # convert bitword to integer
+  out <- BinToDec(bitword)
+  return(out)
+}
+
+#' Convert a binary number to integer
+#'
+#' @param x the binary number
+#'
+#' @return an integer
+#' @export
+#'
+#' @examples
+BinToDec <- function(x){
+  sum(2^(which(rev(unlist(strsplit(as.character(x), "")) == 1))-1))
+}
+
+#' Fix the time span of a multi-temporal raster stack to a user defined time window
+#'
+#' @param br raster stack
+#' @param starttime start date of the desired time span (given as a numeric vector containing the year, month and day)
+#' @param endtime end date of the desired time span (given as a numeric vector containing the year, month and day)
+#' @param tempRes temporal resolution of the raster stack
+#' @param dtsbr vector of dates (Date object) associated with the raster stack
+#'
+#' @return raster stack with adjusted time span
+#' @export
+#'
+setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
+  # make sure that image stack covers time period of interest
+  rstNA <- br[[1]]
+  rstNA[] <- NA # empty image
+  startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date
+  endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
+  dtstot <- as.Date(toRegularTS(c(startyr, dtsbr, endyr), c(startyr, dtsbr, endyr), fun='max', resol = tempRes))# all dates that should be covered in study period
+
+  out <- br
+  npre <- sum(dtstot<min(dtsbr))# missing dates at the start of the study period
+  npost <- sum(dtstot>max(dtsbr))# missing dates at the end of the study period
+  if(npre>0){for(i in 1:npre){out <- addLayer(rstNA, out)}}else{# add observations at the beginning if needed
+    # remove observations before the start of the study period if needed
+    ind <- which(dtsbr>=min(dtstot))
+    out <- out[[ind]]
+  }
+  if(npost>0){for(i in 1:npost){out <- addLayer(out,rstNA)}}else{# add observations at the end if needed
+    # remove observations after the end of the study period if needed
+    ind <- which(dtsbr<=max(dtstot))
+    out <- out[[ind]]
+  }
+  names(out) <- dtstot
+}

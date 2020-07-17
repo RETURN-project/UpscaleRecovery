@@ -13,257 +13,166 @@ vignette: >
   knitr::opts_chunk$set(echo = TRUE, eval=F)
 ```
 # General
-This vignette assumes that a data cube with ARD (level2) Landsat (and/or S2) data has been built using FORCE. In addition a mask to select disturbed pixels (have value 1) and fire data (data have value 1 if a fire is present and a value 0 if no fire occurred) are present.
+This vignette calculates recovery indicators from pixels that experienced fire. It is assumed that a data cube with ARD (level2) Landsat (and/or S2) data has been built using FORCE. In addition a mask to select disturbed pixels that satisfy user-defined criteria (disturbed pixels have value 1; criteria include eg land during study period) and fire data (data have value 1 if a fire is present and a value 0 if no fire occurred) are present.
 
 ## Load required libraries
 ```{r}
 library(raster)
-# library(ff)
 library(UpscaleRecovery)
-library(stars)
 ```
 
-##
+## inputs
+The following inputs are needed:
+
+- tempFun: how should observations be temporally aggregated? This can equal 'mean' or 'max'.
+- temRes: the desired temporal resolution of the spectral data (this should equal the temporal resolution of the fire data)
+- forcefolder: the full path to the folder where the data cube is stored
+- l2folder: the subdirectory of the folder where the tile of interest is stored
+- starttime: the start date of the study period
+- endtime: the end date of the study period
 ```{r}
+tempFun <- 'mean'
+tempRes <- 'monthly'
 forcefolder <- '/home/wanda/Documents/data/force/'
 l2folder <- 'level2/s-america/X0058_Y0025/'
-img <- list.files(file.path(forcefolder,l2folder),'*_BOA.tif')
-st <- read_stars(file.path(forcefolder,l2folder,img), along = 'Date', proxy = T)
-dts <- as.Date(substr(img, 1,8),'%Y%m%d')
-st = st_set_dimensions(st, 4, values = dts, names = "time")
-st <- setNames(st,'Landsat')
-
-# tst <- read_stars(file.path(forcefolder,l2folder,img[1:2]), along = 'Date', proxy = F)
-
-frimg <- list.files(file.path(forcefolder,l2folder),'fire_X')
-fr <- read_stars(file.path(forcefolder,l2folder,frimg[60:61]), along = 'Date', proxy = F)
-frdts <- as.Date(substr(frimg,7,16),'%Y_%m_%d')
-fr = st_set_dimensions(fr, 3, values = frdts, names = "time")
-fr <- setNames(fr,'Fire')
-
-fr60 <- raster(file.path(forcefolder,l2folder,frimg[60]))
-selfr <- raster::Which(fr60==1, cells = T)
-
-msk <- raster(file.path(forcefolder,l2folder,'mask.tif'))
-sel <- raster::Which(msk==1, cells = T)
-
-
-fr <- read_stars(c(file.path(forcefolder,l2folder,'mask.tif'),file.path(forcefolder,l2folder,frimg[60:61])), along = 'Date', proxy = F)
-
-out <- st_apply(fr, 1:2, tstfun)
-poi <- fr#[,,,1]
-poi[[1]][poi[,,,1][[1]]!=1] = NA
-p = st_as_sf(poi, as_points = T)
-pn <- as.matrix(p)
-
-
-# 
-# st_extract(fr,pts = p, method = 'near')
-# 
-# selrc <- ind2rc(selfr[10],dim(msk)[1],dim(msk)[2])
-# frm <- as.matrix(fr60)
-# frm[selfr[10]]
-# fr[1,,,][[1]][selrc[1], selrc[2],1]
-# 
-# as.numeric(fr[1,,,][[1]][c(getIndex(c(selrc,60),dim(fr)),
-#                                     getIndex(c(selrc,61),dim(fr)))])
-# plot(1:2,as.numeric(fr[1,,,][[1]][c(getIndex(c(selrc,60),dim(fr)),
-#                                     getIndex(c(selrc,61),dim(fr)))]))
-# 
-
-# st[1,1:5,1:4,1:2][[1]]
-# c(selrc[1],selrc[2],2)
-# tst <- read_stars(c('/home/wanda/Documents/data/force/level2/mosaic/20001107_LEVEL2_LND05_BOA.vrt',
-#                     '/home/wanda/Documents/data/force/level2/mosaic/20010331_LEVEL2_LND05_BOA.vrt'),
-#                   along = 'Date',
-#                   proxy=F)
-# tst <- read_stars(c("/home/wanda/Documents/data/force/temp/LC08_L1TP_228069_20160722_20170322_01_T1/LC08_L1TP_228069_20160722_20170322_01_T1_B4.TIF",
-#                    "/home/wanda/Documents/data/force/temp/LC08_L1TP_228069_20180509_20180517_01_T1/LC08_L1TP_228069_20180509_20180517_01_T1_B4.TIF"), along = "Date", proxy = F)
-
-# rst1 <- raster(vals = runif(12),nrows = 3, ncols = 4)
-# rst2 <- raster(vals = runif(12),nrows = 3, ncols = 4)
-# 
-# writeRaster(rst1,'/home/wanda/Documents/data/force/temp/rst1.tif')
-# writeRaster(rst2,'/home/wanda/Documents/data/force/temp/rst2.tif')
-# 
-# tmsk <- raster(vals = c(1,1,0,0,1,0,1,1,0,0,0,1),nrows = 3, ncols = 4)
-# 
-# tst <- read_stars(c('/home/wanda/Documents/data/force/temp/rst1.tif', '/home/wanda/Documents/data/force/temp/rst2.tif'), along='Date',proxy = F)
-# 
-# out <- st_apply(tst, 'Date', mean)
-# out[1,,][[1]]
-# 
-# tst[1,,,1:2][[1]][c(2,14)]
-# tst1 <- raster('/home/wanda/Documents/data/force/temp/rst1.tif')
-# Which(tst1>0.9, cells = T)
-# selrc <- c(2,1)
-# tsty <- c(0.75,0.79)
-# tsty <- as.numeric(tst[1,,,][[1]][c(getIndex(c(selrc,1),dim(tst)),
-#                                     getIndex(c(selrc,2),dim(tst)))])
-# tst[1,,,][[1]][2,1,1:2]
-# plot(c(1,2),tsty)
-# 
-# 
-# d <- c(2,3,2)
-# D <- c(4,3,2)
-# 
-# ind2rc(5,4,5)
-# 
-# ind2rc<- function(ind,D1,D2){
-#   d2 <- ceiling(ind/D1)
-#   d1 <- ind - (D1*(d2-1))
-#   c(d1,d2)
-# }
-# getIndex <- function(d,D){
-#   cp <- c(1,cumprod(D))
-#   cp<- cp[-length(cp)]
-#   co <- d-1
-#   co[1] <- d[1]
-#   ind <- sum(co*cp)
-#   ind
-# }
-# tst[1,,,1:2][[1]][c(getIndex(d,D))]
-# 
-# 
-# 
-# ind <- ((ri-1) * nrow) +
-# x[1,,,][[1]][c(1,5)]
-
-
+starttime <- c(1998,1,01)#start date: year, month, day
+endtime <- c(2018,12,01)#end date: year, month, day
 ```
 
+## Prepare optical data
+
+- load spectral data
+- calculate the Normalized Burn Ratio (NBR)
+- mask low quality data
+- mask pixels that are not of interest  
+- create an image stack
+- Temporal aggregation of data to ensure regular time steps
+- ensure that the stack covers the time period of interest
+```{r}
+# list available Bottom Of Atmosphere files
+img <- list.files(file.path(forcefolder,l2folder),'*_BOA.tif')
+
+# extract the dates and sensors of the available data
+prts <- strsplit(img,'_')
+ldts <- as.Date(unlist(lapply(prts, '[[', 1)),'%Y%m%d')
+lsens <- unlist(lapply(prts, '[[', 3))
+fmask <- raster(file.path(forcefolder,l2folder,'mask.tif'))
+rm(prts)
+
+# 
+for(i in 1:length(img)){
+  # open image
+  im <- stack(file.path(forcefolder,l2folder,img[i]))# load the image with spectral data
+  qaim <- raster(file.path(forcefolder,l2folder,gsub("BOA", "QAI", img[i])))# load the Quality Assurance layer
+  # calculate NBR
+  nbri <- switch(1+ ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')), calcNBR(im[[4]], im[[6]]), calcNBR(im[[8]], im[[10]])) 
+  # mask low quality data
+  nbrf <- mskQA(nbri, qaim, slope = c(0,1), aero = c(0,1))
+  # mask data using forest fire mask
+  nbrf[fmask!=1] <- NA
+  # add image to stack
+  if(i == 1){
+    st <- nbrf
+  }else{
+    st <- addLayer(st, nbrf)
+  }
+  rm(nbri, nbrf, im, qaim)
+}
+# assign dates to stack
+names(st) <- ldts
+
+# generate a regular image stack
+tsbr <- calc(stack(fmask,st), function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})#
+dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE) 
+
+# make sure that image stack covers time period of interest
+tsNBR <- setPeriod(br, starttime, endtime,tempRes)
+```
+
+## Create a regular NBR stack that covers the time period of interest
+```{r}
+
+# # make sure that image stack covers time period of interest
+# rstNA <- tsbr[[1]]
+# rstNA[] <- NA # empty image
+# startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date 
+# endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
+# dtstot <- as.Date(toRegularTS(c(startyr, dtsfr, endyr), c(startyr, dtsfr, endyr), fun='max', resol = tempRes))# all dates that should be covered in study period
+# 
+# tsNBR <- tsbr
+# npre <- sum(dtstot<min(dtsbr))# missing dates at the start of the study period
+# npost <- sum(dtstot>max(dtsbr))# missing dates at the end of the study period
+# if(npre>0){for(i in 1:npre){tsNBR <- addLayer(rstNA, tsNBR)}}else{# add observations at the beginning if needed
+#   # remove observations before the start of the study period if needed
+#   ind <- which(dtsbr>=min(dtstot))
+#   tsNBR <- tsNBR[[ind]]
+# }
+# if(npost>0){for(i in 1:npost){tsNBR <- addLayer(tsNBR,rstNA)}}else{# add observations at the end if needed
+#   # remove observations after the end of the study period if needed
+#   ind <- which(dtsbr<=max(dtstot))
+#   tsNBR <- tsNBR[[ind]]
+# }
+# names(tsNBR) <- dtstot
+```
+
+## Prepare the fire data
+
+- load fire data
+- make sure the data cover the time period of interest
+
+```{r}
+# load fire data
+fimg <- list.files(file.path(forcefolder,l2folder),'fire_X')
+tsf <- stack(file.path(forcefolder,l2folder,fimg))
+# assign dates to stack
+dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')
+names(tsf) <- dtsfr
+# make sure that image stack cover time period of interest
+tsFire <- setPeriod(tsf, starttime, endtime,tempRes)
 
 
+# rstNA <- tsf[[1]]
+# rstNA[] <- NA
+# startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) 
+# endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))
+# dtstot <- as.Date(toRegularTS(c(startyr, dtsfr, endyr), c(startyr, dtsfr, endyr), fun='max', resol = tempRes))
+# 
+# tsFire <- tsf
+# npre <- sum(dtstot<min(dtsfr))
+# npost <- sum(dtstot>max(dtsfr))
+# if(npre>0){for(i in 1:npre){tsFire <- addLayer(rstNA, tsFire)}}else{
+#   ind <- which(dtsfr>=min(dtstot))
+#   tsFire <- tsFire[[ind]]
+# }
+# if(npost>0){for(i in 1:npost){tsFire <- addLayer(tsFire,rstNA)}}else{
+#   ind <- which(dtsfr<=max(dtstot))
+#   tsFire <- tsFire[[ind]]
+# }
+# names(tsFire) <- dtstot
+```
 
+## calculate recovery indicators
+```{r}
+# combine mask, fire and nbr stacks into one stack 
+ st <- stack(fmask, tsFire, tsNBR) 
 
+# Calculate recovery indicators 
+# Three recovery indicators are computed: the RRI, R80P, and YrYr 
+for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recovery indicators 
+  # get the correct number of observations per year 
+  if(tempRes == 'monthly') { 
+    obspyr = 12} else if(tempRes == 'daily'){obspyr = 365}else if(tempRes == 'annual'){obspyr = 1} 
+  # calculate the recovery indicators 
+  out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS =
+                                                  funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist =
+                                                  funSet$nDist[i], nPostMin = funSet$nPostMin[i], 
+                                                nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)}, 
+              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_',
+                                funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i],
+                                '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' ,
+                                funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres),
+              overwrite=TRUE)
+}
 
-<!-- # Inputs -->
-<!-- ```{r} -->
-<!-- ifolder <- 'C:\\Users\\keers001\\OneDrive\ -\ WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\' # directory with NBR data -->
-
-<!-- tempRes <- 'monthly' # daily, annual, monthly, or quart (yearly data not supported yet!) -->
-<!-- tempFun <- 'max' # max or mean (function used for temporal aggregation of data) -->
-<!-- timeThres <- 2 # in case of segmentations, the time period between the detected break and the disturbance should be less than timeThres years -->
-<!-- slpThres <- 2 # the slope of the pre-disturbance period should be less than slpThres -->
-
-<!-- if((tempRes == 'monthly') || (tempRes == 'daily')){ -->
-<!--   funSet <- list('input' = c('raw', 'smoothed', 'segmented', 'raw', 'smoothed', 'segmented'),# settings for the recovery indicators -->
-<!--                  'shortDenseTS' = c( TRUE, TRUE, TRUE, TRUE, TRUE, TRUE), -->
-<!--                  'nPre' = c(2,2,2,2,2,2), -->
-<!--                  'nDist' = c(1,1,1,12,12,12), -->
-<!--                  'nPostMin' = c(0,0,0,4,4,4), -->
-<!--                  'nPostMax' = c(1,1,1,6,6,6), -->
-<!--                  'h' = c(0.15,0.15,0.15,0.15,0.15,0.15)) -->
-<!-- } else if (tempRes == 'annual'){ -->
-<!--   funSet <- list('input' = c('raw'),# settings for the recovery indicators -->
-<!--                  'shortDenseTS' = c( FALSE), -->
-<!--                  'nPre' = c(2), -->
-<!--                  'nDist' = c(12), -->
-<!--                  'nPostMin' = c(4), -->
-<!--                  'nPostMax' = c(6), -->
-<!--                  'h' = c(0.15)) -->
-<!-- } -->
-
-<!-- ``` -->
-
-
-<!-- # Preprocess NBR data -->
-<!-- Create regular time series -->
-<!-- ```{r} -->
-<!-- # get the dates of the time series observations -->
-<!-- names(br) <- dts -->
-<!-- dts <- as.Date(dts, format = "X%Y.%m.%d") ## needed as input in the helper function of get_m_agg -->
-
-<!-- # Create regular time series  -->
-<!-- tsbr <- calc(stack(freloc,br), function(x){toRegularTSStack(x, dts, fun = tempFun, resol = tempRes)}, filename = paste0(ofolder, tsfile, '_', tempRes, '_', tempFun), overwrite=TRUE) -->
-
-
-<!-- ``` -->
-
-<!-- # Preprocess fire data  -->
-<!-- The fire data are converted to the right temporal resolution and its representation is adjusted (value 0 represents no fire and 1 a fire) -->
-<!-- ```{r} -->
-<!-- # e <-  drawExtent() -->
-<!-- # fst <- crop(stack(freloc,fcl30,fjd30),e) -->
-
-<!-- # convert the fire data to a regular time series with same temporal resolution as the NBR series. Here, observations during fire events get the value 1 and other observations the value 0 -->
-
-<!-- tsFire <- calc(stack(freloc,fcl30,fjd30), function(x){createFireStack(x, fdts, resol = tempRes, thres = 95)}, filename = paste0(ofolder, tsfile, '_Fire_', tempRes), overwrite=TRUE) -->
-
-<!-- # get the dates of the nbr and fire stacks -->
-<!--   dtsbr <- as.Date(toRegularTS(dts, dts, fun='max', resol = tempRes)) -->
-<!--   dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE) -->
-<!--   dtsfr <- as.Date(toRegularTS(fdts, fdts, fun='max', resol = tempRes)) -->
-<!--   dtsfr <- rollback(dtsfr, roll_to_first = TRUE, preserve_hms = TRUE) -->
-
-<!-- save(dtsfr, file = file.path(ofolder, paste0(tsfile, '_Firedts_', tempRes))) -->
-<!-- save(dtsbr, file = file.path(ofolder, paste0(tsfile, '_dts_', tempRes, '_', tempFun))) -->
-
-<!-- ``` -->
-
-<!-- # Plot time series -->
-<!-- Here, an example of a time series with fire is plotted -->
-<!-- ```{r} -->
-<!-- # load time series -->
-<!-- tsbr <- stack(paste0(ofolder, tsfile, '_', tempRes, '_', tempFun, '.gri')) -->
-<!-- tsFire <- stack(paste0(ofolder, tsfile, '_Fire_', tempRes, '.gri')) -->
-
-<!-- # find a pixel that experienced a fire -->
-<!-- fireind <- Which(freloc>0, cells = T) -->
-<!-- ii <- fireind[20] -->
-
-<!-- # get the time series from the stack  -->
-<!-- tsii <- as.numeric(tsbr[ii]) -->
-<!-- frii <- as.numeric(tsFire[ii]) -->
-
-<!-- # plot time series -->
-<!-- plot(zoo(tsii,dtsbr)) -->
-<!-- lines(zoo(frii,dtsfr), col = 'red') -->
-
-<!-- ``` -->
-
-<!-- # Create total stack -->
-
-<!-- Make sure the the fire and NBR stack cover the same time period and merge both stacks -->
-<!-- ```{r} -->
-<!-- # ensure that the two stacks cover the same time period  -->
-
-<!-- # get the start and end date of the overlap period -->
-<!-- startdt <- max(c(min(dtsbr), min(dtsfr))) -->
-<!-- enddt  <- min(c(max(dtsbr), max(dtsfr))) -->
-
-<!-- # clip the stacks to the overlap period -->
-<!-- indbr  <- which((dtsbr > (startdt-1)) & (dtsbr < (enddt+1))) -->
-<!-- indfr  <- which((dtsfr > (startdt-1)) & (dtsfr < (enddt+1))) -->
-
-<!-- finbr <- tsbr[[indbr]] -->
-<!-- finfr <- tsFire[[indfr]] -->
-
-<!-- # # combine mask, fire and nbr stacks into one stack -->
-<!-- st <- stack(freloc, finfr, finbr) -->
-<!-- ``` -->
-
-<!-- # Calculate recovery indicators -->
-<!-- Four recovery indicators are computed: the RRI, R80P, YrYr and the slope of the post-disturbance segment -->
-<!-- ```{r} -->
-<!-- # calculate stability indicators -->
-<!-- # RRI,R80P, YrYr, Sl -->
-
-<!-- for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recovery indicators -->
-<!--   # get the correct number of observations per year -->
-<!--    if(tempRes == 'monthly') { -->
-<!--     obspyr = 12} else if(tempRes == 'daily'){obspyr = 365}else if(tempRes == 'annual'){obspyr = 1} -->
-
-<!--   # calculate the recovery indicators -->
-<!--   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS = funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist = funSet$nDist[i], nPostMin = funSet$nPostMin[i], -->
-<!--                                                 nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)},  -->
-<!--               filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_', funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i], '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' , funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres), overwrite=TRUE) -->
-<!-- } -->
-
-<!-- ``` -->
-
-<!-- ```{r, include=FALSE} -->
-<!-- stab <- stack(file.path(ofolder,'LSTS_SantaRem_area2_2000_2020_Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_1_nPostMin_0_nPostMax_1_h_15.gri')) -->
-<!-- plot(stab[[1]]) -->
-<!-- ``` -->
+```
 
