@@ -333,28 +333,36 @@ BinToDec <- function(x){
 #' @param dtsbr vector of dates (Date object) associated with the raster stack
 #'
 #' @return raster stack with adjusted time span
+#' @import lubridate
 #' @export
 #'
 setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
+  tres <- c('1 month', '3 months', '1 day', '1 year')
+  names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
   # make sure that image stack covers time period of interest
   rstNA <- br[[1]]
   rstNA[] <- NA # empty image
   startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date
   endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
-  dtstot <- as.Date(toRegularTS(c(startyr, dtsbr, endyr), c(startyr, dtsbr, endyr), fun='max', resol = tempRes))# all dates that should be covered in study period
+  dtstot <- seq(startyr, endyr, by = tres[tempRes])
 
   out <- br
+  out <- out[[which((dtsbr>=min(dtstot)) & (dtsbr<=max(dtstot)))]]# remove observations that fall outside the study period
   npre <- sum(dtstot<min(dtsbr))# missing dates at the start of the study period
   npost <- sum(dtstot>max(dtsbr))# missing dates at the end of the study period
-  if(npre>0){for(i in 1:npre){out <- addLayer(rstNA, out)}}else{# add observations at the beginning if needed
+  if(npre>0){for(i in 1:npre){out <- addLayer(rstNA, out)}}
+  # else{# add observations at the beginning if needed
     # remove observations before the start of the study period if needed
-    ind <- which(dtsbr>=min(dtstot))
-    out <- out[[ind]]
-  }
-  if(npost>0){for(i in 1:npost){out <- addLayer(out,rstNA)}}else{# add observations at the end if needed
-    # remove observations after the end of the study period if needed
-    ind <- which(dtsbr<=max(dtstot))
-    out <- out[[ind]]
-  }
+  #   ind <- which(dtsbr>=min(dtstot))
+  #   dtsbr <- dtsbr[ind]
+  #   out <- out[[ind]]
+  # }
+  if(npost>0){for(i in 1:npost){out <- addLayer(out,rstNA)}}
+  # else{# add observations at the end if needed
+  #   # remove observations after the end of the study period if needed
+  #   ind <- which(dtsbr<=max(dtstot))
+  #   out <- out[[ind]]
+  # }
   names(out) <- dtstot
+  return(out)
 }

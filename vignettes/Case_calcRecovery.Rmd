@@ -21,7 +21,7 @@ library(raster)
 library(UpscaleRecovery)
 ```
 
-## inputs
+## Inputs
 The following inputs are needed:
 
 - tempFun: how should observations be temporally aggregated? This can equal 'mean' or 'max'.
@@ -83,36 +83,15 @@ names(st) <- ldts
 
 # generate a regular image stack
 tsbr <- calc(stack(fmask,st), function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})#
-dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE) 
+tres <- c('1 month', '3 months', '1 day', '1 year')
+names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
+dtsbr <- seq(min(ldts), max(ldts), by = tres[tempRes])
+if(temRes == 'monthly'){
+  dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
+}
 
 # make sure that image stack covers time period of interest
-tsNBR <- setPeriod(br, starttime, endtime,tempRes)
-```
-
-## Create a regular NBR stack that covers the time period of interest
-```{r}
-
-# # make sure that image stack covers time period of interest
-# rstNA <- tsbr[[1]]
-# rstNA[] <- NA # empty image
-# startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date 
-# endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
-# dtstot <- as.Date(toRegularTS(c(startyr, dtsfr, endyr), c(startyr, dtsfr, endyr), fun='max', resol = tempRes))# all dates that should be covered in study period
-# 
-# tsNBR <- tsbr
-# npre <- sum(dtstot<min(dtsbr))# missing dates at the start of the study period
-# npost <- sum(dtstot>max(dtsbr))# missing dates at the end of the study period
-# if(npre>0){for(i in 1:npre){tsNBR <- addLayer(rstNA, tsNBR)}}else{# add observations at the beginning if needed
-#   # remove observations before the start of the study period if needed
-#   ind <- which(dtsbr>=min(dtstot))
-#   tsNBR <- tsNBR[[ind]]
-# }
-# if(npost>0){for(i in 1:npost){tsNBR <- addLayer(tsNBR,rstNA)}}else{# add observations at the end if needed
-#   # remove observations after the end of the study period if needed
-#   ind <- which(dtsbr<=max(dtstot))
-#   tsNBR <- tsNBR[[ind]]
-# }
-# names(tsNBR) <- dtstot
+tsNBR <- setPeriod(br, starttime, endtime,tempRes, dtsbr)
 ```
 
 ## Prepare the fire data
@@ -127,31 +106,11 @@ tsf <- stack(file.path(forcefolder,l2folder,fimg))
 # assign dates to stack
 dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')
 names(tsf) <- dtsfr
-# make sure that image stack cover time period of interest
-tsFire <- setPeriod(tsf, starttime, endtime,tempRes)
-
-
-# rstNA <- tsf[[1]]
-# rstNA[] <- NA
-# startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) 
-# endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))
-# dtstot <- as.Date(toRegularTS(c(startyr, dtsfr, endyr), c(startyr, dtsfr, endyr), fun='max', resol = tempRes))
-# 
-# tsFire <- tsf
-# npre <- sum(dtstot<min(dtsfr))
-# npost <- sum(dtstot>max(dtsfr))
-# if(npre>0){for(i in 1:npre){tsFire <- addLayer(rstNA, tsFire)}}else{
-#   ind <- which(dtsfr>=min(dtstot))
-#   tsFire <- tsFire[[ind]]
-# }
-# if(npost>0){for(i in 1:npost){tsFire <- addLayer(tsFire,rstNA)}}else{
-#   ind <- which(dtsfr<=max(dtstot))
-#   tsFire <- tsFire[[ind]]
-# }
-# names(tsFire) <- dtstot
+# make sure that image stack covers time period of interest
+tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr)
 ```
 
-## calculate recovery indicators
+## Calculate recovery indicators
 ```{r}
 # combine mask, fire and nbr stacks into one stack 
  st <- stack(fmask, tsFire, tsNBR) 
