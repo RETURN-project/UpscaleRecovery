@@ -10,31 +10,6 @@ loadRData <- function(fileName){
   get(ls()[ls() != "fileName"])
 }
 
-#' The TScompress function compresses a time series vector. The purpose is to avoid storing many NA values.
-#'
-#' @param ts a vector that will be compressed
-#'
-#' @return a vector containing, in order, the length of the input vector, the number of observations without NA, the observations without NA, and the values of the observations that are no NA
-#' @export
-TScompress <- function(ts){
-    c(length(ts), length(which(!is.na(ts))), which(!is.na(ts)), ts[!is.na(ts)])
-}
-
-#' The TSdecompress recovers a vector that has been compressed by the TScompress function in its original format.
-#'
-#' @param ts a vector compressed be the TScompress function
-#'
-#' @return the vector restored in its original format
-#' @export
-TSdecompress <- function(ts){
-    vec <- rep(NA,ts[1])
-    if(ts[2] > 0){
-        vec[ts[3:(ts[2]+2)]] <- ts[(ts[2]+3):((2*ts[2])+2)]
-    }
-    vec
-}
-
-
 #' Convert time series to annual frequency: The toAnnualTS function converts a time series with n observations per year to an annual time series (one observation per year). The main concept is to select observations per year closest to a given day of year that have no missing value (NA). Here, the day of year for which the seasonality is maximum is being used.
 #'
 #' @param tsseas vector of observations (time series) representing the seasonal component of the time series to be converted

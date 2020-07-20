@@ -16,7 +16,7 @@ calcSegRec(
   nPostMin,
   nPostMax,
   timeThres,
-  slpThres
+  seas = F
 )
 }
 \arguments{

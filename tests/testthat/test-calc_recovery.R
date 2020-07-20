@@ -6,10 +6,10 @@ test_that("Frazier - annual - too short time series", {
   tdist <- 2
   obspyr <- 1
   shortDenseTS <- FALSE
-  nPre <- 1
+  nPre <- 2
   nDist <- 1
-  nPostMin <- 1
-  nPostMax <- 1
+  nPostMin <- 4
+  nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
 
@@ -20,14 +20,14 @@ test_that("Frazier - annual - too short time series", {
 
 test_that("Frazier - annual", {
 
-  tsio <- c(rep(1,2), seq(-5, -1), rep(-2,1))
+  tsio <- c(rep(1,2), seq(-5, -1), rep(-2,1),1)
   tdist <- 3
   obspyr <- 1
   shortDenseTS <- FALSE
-  nPre <- 1
-  nDist <- 1
-  nPostMin <- 1
-  nPostMax <- 1
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
   pre <- 1
@@ -50,20 +50,20 @@ test_that("Frazier - dense", {
   obspyr <- 12
   shortDenseTS <- TRUE
   nPre <- 2
-  nDist <- 12
+  nDist <- 1
   nPostMin <- 4
   nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
   pre <- 1
   dist <- mean(tsio[25:36])
-  post <- mean(tsio[73:85])
+  post <- max(tsio[73:84])
   dnbr <- pre-dist
   ari <- post-dist
 
   rri <- ari/dnbr
   r80p <- post/(0.8*pre)
-  yryr <- (post - dist)/4.5
+  yryr <- (mean(tsio[73:84]) - dist)/(4*12)
 
 
   expect_equal(metrics$RRI, rri, tolerance = 1e-4)
@@ -74,34 +74,85 @@ test_that("Frazier - dense", {
 test_that("Frazier - segmented", {
 
   tsio <- c(rep(1,24), seq(-5, -1, length.out=60), rep(-2,12))
-  tdist <- rep(0,96)
+  tdist <- 25
   tdist[25] <- 1
   obspyr <- 12
   shortDenseTS <- TRUE
   nPre <- 2
-  nDist <- 12
+  nDist <- 1
   nPostMin <- 4
   nPostMax <- 5
   h <- 0.1
   timeThres <- 2
-  slpThres <- 2
 
-  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, slpThres)
+  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres)
   pre <- 1
   dist <- mean(tsio[25:36])
-  post <- mean(tsio[73:85])
+  post <- mean(tsio[73:84])
   dnbr <- pre-dist
   ari <- post-dist
 
   rri <- ari/dnbr
   r80p <- post/(0.8*pre)
-  yryr <- (post - dist)/4.5
-  sl <- 4/60
+  yryr <- (mean(tsio[73:84]) - dist)/(4*12)
 
   expect_equal(metrics$RRI, rri, tolerance = 1e-4)
   expect_equal(metrics$R80P, r80p, tolerance = 1e-4)
   expect_equal(metrics$YrYr, yryr, tolerance = 1e-4)
-  expect_equal(metrics$Sl, sl, tolerance = 1e-2)
+})
+
+test_that("Frazier - segmented annual - long", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0,8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
+  h <- 0.2
+  seas <- F
+
+  metrics <- calcSegRec(tsio, tdist, maxBreak = T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  pre <- 1
+  dnbr <- 6
+  ari <- 2.5
+
+  rrim <- ari/dnbr
+  r80pm <- tsio[14]/(0.8*pre)
+  yryrm <- (tsio[14] - tsio[9])/5
+
+  expect_equal(metrics$RRI, rrim, tolerance = 1e-4)
+  expect_equal(metrics$R80P, r80pm, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, yryrm, tolerance = 1e-4)
+})
+
+test_that("Frazier - segmented annual - short", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0,8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 1
+  nPostMax <- 1
+  h <- 0.2
+  seas <- F
+
+  metrics <- calcSegRec(tsio, tdist, maxBreak = T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  pre <- 1
+  dnbr <- 6
+  ari <- 0.5
+
+  rrim <- ari/dnbr
+  r80pm <- tsio[10]/(0.8*pre)
+  yryrm <- (tsio[10] - tsio[9])/1
+
+  expect_equal(metrics$RRI, rrim, tolerance = 1e-4)
+  expect_equal(metrics$R80P, r80pm, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, yryrm, tolerance = 1e-4)
 })
 
 test_that("Calc recovery indicators from stack using yearly, raw observations", {
@@ -137,8 +188,8 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
 
   # Calculate stability indicators (RRI, R80P, YrYr, Sl)
   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=T, obspyr=1, inp = 'raw', shortDenseTS = FALSE,
-                                                nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres = 2, slpThres = 2)})
-  names(out) <- c('RRI', 'R80p', 'YrYr', 'Slope', 'missingVal', 'loglik', 'AIC')
+                                                nPre = 2, nDist = 0, nPostMin = 4, nPostMax = 5, h = 0.15, timeThres = 2, seas=F)})
+  names(out) <- c('RRI', 'R80p', 'YrYr', 'missingVal', 'loglik', 'AIC')
   mout <- raster::as.matrix(out)
   # observations that were masked
   msked <- sum(is.na(mout[2:3,]))
@@ -177,7 +228,7 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
   c3yryr <- (1+3)/5 # 5 years post - disturbance value / 5
 
   # masked time series should have NA value for the recovery indicators
-  expect_equal(msked, 14, tolerance = 1e-4)
+  expect_equal(msked, 12, tolerance = 1e-4)
   # case 1 - multiple disturbance dates
   expect_equal(as.numeric(mout[1,1]), c1rri, tolerance = 1e-4)
   expect_equal(as.numeric(mout[1,2]), c1r80p, tolerance = 1e-4)

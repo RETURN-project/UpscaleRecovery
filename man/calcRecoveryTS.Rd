@@ -16,7 +16,7 @@ calcRecoveryTS(
   nPostMax = 6,
   h = 0.15,
   timeThres,
-  slpThres
+  seas
 )
 }
 \arguments{
