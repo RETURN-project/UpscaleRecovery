@@ -8,7 +8,7 @@ test_that("Calculate Normalized Burn Ratio", {
   expect_equal(calcNBR(nir,swir), nbr)
 })
 
-test_that("Calculate Normalized Burn Ratio", {
+test_that("Calculate QA", {
   expect_equal(getQA(illum = 1, slope = 1, wvp = 1), 28672)
 })
 
@@ -54,6 +54,44 @@ test_that("Mask using QA values",{
   mskd <- mskQA(im, qaim, valid = 0, cloud = c(0,1), shadow = 0, snow = 0, water = 0, aero = c(0,1), subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = c(0,1), wvp = 0)
   exp <- c(1,NA,3,NA,NA,NA,7,8,NA,10,11,NA)
   expect_equal(mskd[], exp)
+})
+
+test_that("dense to annual", {
+  tsseas <- rep(c(1,4,5,2),2)
+  tsi <- c(2,5,7,4,5,6,7,3,4,5,6,7,2,1,3,4,5,3,6,9)
+  obspyr <- 4
+
+  tsa <- toAnnualTS(tsseas, tsi, obspyr)
+  annual <- tsi[seq(3,20,by=4)]
+
+  diff <- sum(tsa - annual)
+
+  expect_equal(diff, 0, tolerance = 1e-4)
+})
+
+test_that("dense to annual with missing values", {
+  tsseas <- rep(c(1,4,5,2),2)
+  tsi <- c(2,5,NA,4,5,6,7,3,4,5,6,7,2,1,3,4,5,3,6,9)
+  obspyr <- 4
+
+  tsa <- toAnnualTS(tsseas, tsi, obspyr, dtmax = 1/12)
+  annual <- tsi[seq(3,20,by=4)]
+
+  expect_equal(tsa, annual, tolerance = 1e-4)
+})
+
+test_that("dense to annual with varying intra-annual selection period", {
+  tsseas <- rep(c(1,4,5,2),2)
+  tsi <- c(2,5,NA,4,5,6,7,3,4,5,6,7,2,1,3,4,5,NA,NA,9)
+  obspyr <- 4
+
+  tsa1 <- toAnnualTS(tsseas, tsi, obspyr, dtmax = 1/12)
+  annual1 <- tsi[seq(3,20,by=4)]
+  tsa2 <- toAnnualTS(tsseas, tsi, obspyr, dtmax = 1/2)
+  annual2 <- c(5, 7, 6, 3, 9)
+
+  expect_equal(tsa1, annual1, tolerance = 1e-4)
+  expect_equal(tsa2, annual2, tolerance = 1e-4)
 })
 
 test_that("Temporal aggregation", {
