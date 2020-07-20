@@ -31,7 +31,7 @@ calcFrazier <- function(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin
       ts_post <-  seq(tdist +(nPostMin*obspyr), tdist +(nPostMax*obspyr)-1)
     }
 
-    deltat <- switch(shortDenseTS + 1, (nPostMax*obspyr), mean(ts_post)-mean(tdist))
+    deltat <- switch(shortDenseTS + 1, (nPostMax*obspyr), ts_post-tdist)
 
     RRI <- rri(ts,ys,tpert,ts_pre, ts_post)
     R80P <- r80p(ts,ys,r = 0.8,ts_pre, ts_post)
@@ -39,7 +39,7 @@ calcFrazier <- function(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin
     # make list of recovery indicators as output of the function
     lst <- list(RRI, R80P, YrYr)
     names(lst) <- c('RRI', 'R80P', 'YrYr')
-    # give NA as output if not able to calculate the recovery indicatores
+    # give NA as output if not able to calculate the recovery indicators
   }else{
     lst <- list(NA, NA, NA)
     names(lst) <- c('RRI', 'R80P', 'YrYr')
@@ -136,7 +136,7 @@ calcSegRec <- function(tsio, tdist, maxBreak, obspyr, h, shortDenseTS, nPre, nDi
         # negative break
         distChck <- ((trf[tbp+1] - trf[tbp]) < 0)
         # no negative break in recovery period with strong slope after the break
-        brkthres <- 1+switch((1+shortDenseTS),5,nPostMax)*obspyr #post-disturbance period used to assess recovery
+        brkthres <- 1+(nPostMax*obspyr) #post-disturbance period used to assess recovery
         if(any((totbp>tbp) & (totbp<(brkthres+tbp)))){
           postbr <- totbp[(totbp>tbp) & (totbp<(brkthres+tbp))]
           postdbr <- trf[postbr+1]-trf[postbr]
@@ -245,8 +245,8 @@ calcRecoveryTS <- function(tsi, maxBreak, obspyr, inp = 'segmented', shortDenseT
 #' @param nPostMin start of the post-disturbance period: number of years after the disturbance
 #' @param nPostMax end of the post-disturbance period: number of years after the disturbance
 #' @param h h parameter of the breakpoints function in the strucchange package
-#' @param timeThres only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]
-#' @param slpThres only relevant for segmentation:threshold on the pre-disturbance slope
+#' @param timeThres only relevant for piecewise regression: threshold on the duration between the disturbance date and date of the detected break [years]
+#' @param seas only relevant for piecewise regression: should a seasonality term be used?
 #'
 #' @return a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 #' @export

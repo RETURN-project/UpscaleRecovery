@@ -128,6 +128,46 @@ test_that("Frazier - segmented annual - long", {
   expect_equal(metrics$YrYr, yryrm, tolerance = 1e-4)
 })
 
+test_that("Frazier - segmented annual - testing the preconditions", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0, 8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
+  h <- 0.2
+  seas <- F
+  # max time span between break and disturbance
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+  # pos break
+  tsio <- c(rep(1,8), seq(13, 0, by = -0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+  # neg recovery
+  tsio <- c(rep(1,8), seq(-5, -10, by = -0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+  # second break within recovery period
+  tsio <- c(rep(1,8), seq(-5, -2, by = 0.5),seq(-5, -3, by = 0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+})
+
 test_that("Frazier - segmented annual - short", {
 
   tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0,8))

@@ -30,6 +30,17 @@ The following inputs are needed:
 - l2folder: the subdirectory of the folder where the tile of interest is stored
 - starttime: the start date of the study period
 - endtime: the end date of the study period
+- maxBreak: (only for recovery indicators derived from segmented time series): if maxbreak is true, the maximum break in the segmented series is used as disturbance date to calculate the recovery indicators. If maxbreak is false, the break closest to the provided disturbance timing is used to calculate recovery.
+- inp: the preprocessing applied to the time series before computing the recovery indicators: segmented (for piecewise regression), smooth (time series smoothing using loess), or raw (no preprocessing)
+- shortDenseTS: if FALSE, the recovery indicators follow closely the definitions given by Frazier et al.
+- nPre: number of years prior to the disturbance that are used to derive the pre-disturbance condition
+- nDist: number of observations used to derive the disturbance state
+- nPostMin: start of the post-disturbance period: number of years after the disturbance
+- nPostMax: end of the post-disturbance period: number of years after the disturbance
+- h: h parameter of the breakpoints function in the strucchange package
+- timeThres: only relevant for piecewise regression: threshold on the duration between the disturbance date and date of the detected break [years]
+- seas: only relevant for piecewise regression: should a seasonality term be used?
+
 ```{r}
 tempFun <- 'mean'
 tempRes <- 'monthly'
@@ -37,6 +48,20 @@ forcefolder <- '/home/wanda/Documents/data/force/'
 l2folder <- 'level2/s-america/X0058_Y0025/'
 starttime <- c(1998,1,01)#start date: year, month, day
 endtime <- c(2018,12,01)#end date: year, month, day
+
+# settings recovery indicators
+
+recSet <- data.frame(maxBreak = c(F))
+recSet$inp <- c('segmented')
+recSet$shortDenseTS <- F
+recSet$nPre <- c(2)
+recSet$nDist <- c(1)
+recSet$nPostMin <- c(4)
+recSet$nPostMax <- c(6)
+recSet$h <- c(0.15)
+recSet$timeThres <- c(1)
+recSet$seas <- c(T)
+
 ```
 
 ## Prepare optical data
@@ -114,22 +139,38 @@ tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr)
 ```{r}
 # combine mask, fire and nbr stacks into one stack 
  st <- stack(fmask, tsFire, tsNBR) 
-
+ obsvec <- c(12, 365, 1, 4)
+ names(obsvec) <- c('monthly', 'daily', 'annual', 'quart')
+ 
 # Calculate recovery indicators 
 # Three recovery indicators are computed: the RRI, R80P, and YrYr 
-for(i in 1:length(funSet[[1]])){# iterate over the settings to derive the recovery indicators 
+for(i in 1:dim(recSet)[1]){# iterate over the settings to derive the recovery indicators 
   # get the correct number of observations per year 
-  if(tempRes == 'monthly') { 
-    obspyr = 12} else if(tempRes == 'daily'){obspyr = 365}else if(tempRes == 'annual'){obspyr = 1} 
+  obspyr = obsvec[tempRes]
   # calculate the recovery indicators 
-  out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=F, obspyr=obspyr, inp = funSet$input[i], shortDenseTS =
-                                                  funSet$shortDenseTS[i], nPre = funSet$nPre[i], nDist =
-                                                  funSet$nDist[i], nPostMin = funSet$nPostMin[i], 
-                                                nPostMax = funSet$nPostMax[i], h = funSet$h[i], timeThres, slpThres)}, 
-              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_maxBreak_F', '_obspyr_', obspyr, '_inp_',
-                                funSet$input[i], '_shortDenseTS_', funSet$shortDenseTS[i], '_nPre_',  funSet$nPre[i],
-                                '_nDist_', funSet$nDist[i], '_nPostMin_', funSet$nPostMin[i], '_nPostMax_' ,
-                                funSet$nPostMax[i], '_h_', funSet$h[i]*100, '_', timeThres, '_', slpThres),
+  out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=recSet$maxBreak[i], 
+                                                obspyr=obspyr, 
+                                                inp = recSet$inp[i], 
+                                                shortDenseTS = recSet$shortDenseTS[i], 
+                                                nPre = recSet$nPre[i], 
+                                                nDist = recSet$nDist[i], 
+                                                nPostMin = recSet$nPostMin[i], 
+                                                nPostMax = recSet$nPostMax[i], 
+                                                h = recSet$h[i], 
+                                                timeThres = recSet$timeThres, 
+                                                seas = recSet$seas)}, 
+              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_', 
+                                recSet$maxBreak[i],'_', 
+                                recSet$obspyr[i], '_',
+                                recSet$inp[i], '_', 
+                                recSet$shortDenseTS[i], '_',  
+                                recSet$nPre[i], '_', 
+                                recSet$nDist[i], '_', 
+                                recSet$nPostMin[i], '_' ,
+                                recSet$nPostMax[i], '_', 
+                                recSet$h[i]*100, '_', 
+                                recSet$timeThres[i], '_', 
+                                recSet$seas[i]),
               overwrite=TRUE)
 }
 
