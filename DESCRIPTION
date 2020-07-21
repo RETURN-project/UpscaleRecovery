@@ -16,11 +16,12 @@ Remotes: bfast2/bfast@master,
 Imports: bfast,
          stats,
          strucchange,
+         lubridate,
+         sde,
          zoo
 Suggests: testthat,
           knitr,
           rmarkdown,
-          lubridate,
           raster
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 VignetteBuilder: knitr

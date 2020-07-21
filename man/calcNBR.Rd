@@ -2,18 +2,18 @@
 % Please edit documentation in R/fun_general.R
 \name{calcNBR}
 \alias{calcNBR}
-\title{Calculate Normalized Burn Ratio}
+\title{Calculate the Normalized Burn ratio}
 \usage{
 calcNBR(NIR, SWIR)
 }
 \arguments{
-\item{NIR}{Reflectance NIR band (band 4 for landsat 4-7 and band 5 for landsat 8)}
+\item{NIR}{Near Infrored reflectance}
 
-\item{SWIR}{Reflectance SWIR band (band 7 of landsat)}
+\item{SWIR}{Shortwave Infrared reflectance}
 }
 \value{
-
+Normalized Burn Ratio
 }
 \description{
-Calculate Normalized Burn Ratio
+Calculate the Normalized Burn ratio
 }

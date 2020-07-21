@@ -16,19 +16,19 @@ calcRecoveryStack(
   nPostMax = 6,
   h = 0.15,
   timeThres,
-  slpThres
+  seas
 )
 }
 \arguments{
 \item{st}{raster stack, the first raster is a mask (pixels with value 0 are not considered, pixels with value 1 are included), the next n rasters represent disturbances (0 if no disturbance occours, 1 if a disturbance occurs) and the last n rasters contain the time series observations}
 
-\item{maxBreak}{(only for recovery indicators derived from segmented time series): if maxbreak is true, the maximum break in the segmented series is used as disturbance date to calculate the recovery indicators. If maxbreak is false, the break closest to the provided disturbance timing is used to calculate recovery.}
+\item{maxBreak}{(only for recovery indicators derived after piecewise regression): if maxbreak is true, the maximum break in the segmented series is used as disturbance date to calculate the recovery indicators. If maxbreak is false, the break closest to the provided disturbance timing is used to calculate recovery.}
 
 \item{obspyr}{the number of observations per year}
 
-\item{inp}{the preprocessing applied to the time series before computing the recovery indicators: segmented (for segmentations), smooth (time series smoothing using loess), or raw (no preprocessing)}
+\item{inp}{the preprocessing applied to the time series before computing the recovery indicators: segmented (for piecewise regression), smooth (time series smoothing using loess), or raw (no preprocessing)}
 
-\item{shortDenseTS}{if true, the recovery indicators are user designed, i.e. they can be adjusted to deal with short and/or dense time series}
+\item{shortDenseTS}{In case FALSE, the metrics follow closely the definitions given by Frazier et al}
 
 \item{nPre}{number of years prior to the disturbance that are used to derive the pre-disturbance condition}
 
@@ -40,9 +40,9 @@ calcRecoveryStack(
 
 \item{h}{h parameter of the breakpoints function in the strucchange package}
 
-\item{timeThres}{only relevant for segmentation: threshold on the duration between the disturbance date and date of the detected break [years]}
+\item{timeThres}{only relevant for piecewise regression: threshold on the duration between the disturbance date and date of the detected break [years]}
 
-\item{slpThres}{only relevant for segmentation:threshold on the pre-disturbance slope}
+\item{seas}{only relevant for piecewise regression: should a seasonality term be used?}
 }
 \value{
 a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment
@@ -50,3 +50,4 @@ a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 \description{
 Calculate recovery indicators from a time series stack
 }
+

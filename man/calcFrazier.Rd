@@ -17,7 +17,7 @@ calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
 
 \item{nPre}{If shortDenseTS is TRUE, number of years prior to the disturbance used to calculate the pre-disturbance value}
 
-\item{nDist}{If shortDenseTS is TRUE, number of months used to quantify the time series value during the disturbance}
+\item{nDist}{If shortDenseTS is TRUE, number of years used to quantify the time series value during the disturbance}
 
 \item{nPostMin}{If shortDenseTS is TRUE,  the post-disturbance condition is quantified starting from nPostMin years after the disturbance}
 
@@ -29,3 +29,4 @@ a list containing the RRI recovery indicator, R80p recovery indicator and YrYr r
 \description{
 Calculate recovery metrics from a time series with known disturbance date. The calcFrazier function derives the RRI, R80P and YrYr recovery indicators, defined by Frazier et al. (2018). The indicators are originally developped for annual long-term time series of optical vegetation indices (the indicators are shown in the figures below). Yet, in order to be able to derive the indicators as well for dense and/or short time series, a modified version is suggested. Here, the user can define the time period before, during and after the disturbance that is used to derive the indicators. To reduce the interference of the seasonal pattern of dense time series, the chosen time period should cover blocks of n years. Moreover, given the potentially high noise levels of dense time series, the mean value instead of the maximum value was used in the formulas. (Frazier, R. J., Coops, N. C., Wulder, M. A., Hermosilla, T., & White, J. C. (2018). Analyzing spatial and temporal variability in short-term rates of post-fire vegetation return from Landsat time series. Remote Sensing of Environment, 205, 32-45.)
 }
+

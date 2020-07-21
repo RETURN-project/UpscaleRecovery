@@ -33,11 +33,11 @@ library("RColorBrewer")
 
 ```{r}
 # folder where data is stored
-ofolder <- '../inst/extdata/'# 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\'
+ofolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Data\\'
 # base name of the recovery indicator files
-basename <- c('Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_12_nPostMin_4_nPostMax_6_h_15_2_2')
+basename <- c('LSTS_SantaRem_area', '_2000_2020_Stab_monthly_maxBreak_F_obspyr_12_inp_segmented_shortDenseTS_TRUE_nPre_2_nDist_12_nPostMin_4_nPostMax_6_h_15')
 # directory where the figures will be stored
-figfolder <- '../inst/extdata/'# 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Figures\\'
+figfolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\20200107_Upscaling\\CaseStudy\\Figures\\'
 
 # lcfolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CopernicusLandCover\\'
 ```
@@ -47,16 +47,18 @@ figfolder <- '../inst/extdata/'# 'C:\\Users\\keers001\\OneDrive - WageningenUR\\
 map.world <- map_data('world')
 
 # load the recovery indicator raster stacks
-stab <- stack(file.path(ofolder, paste0( basename,'.gri')))
+stab1 <- stack(file.path(ofolder, paste0(basename[1],1, basename[2],'.gri')))
+stab2 <- stack(file.path(ofolder, paste0(basename[1],2, basename[2],'.gri')))
+stab3 <- stack(file.path(ofolder, paste0(basename[1],3, basename[2],'.gri')))
+stab4 <- stack(file.path(ofolder, paste0(basename[1],4, basename[2],'.gri')))
 ```
 
 # Generate point coordinates of the site centroids
 ```{r}
 # generate point coordinates of site centroids
-(sites <- data.frame(longitude = c( mean(extent(stab)[1:2])), latitude = c(mean(extent(stab)[3:4]))))
+(sites <- data.frame(longitude = c( mean(extent(stab1)[1:2]),  mean(extent(stab2)[1:2]), mean(extent(stab3)[1:2]),  mean(extent(stab4)[1:2])), latitude = c(mean(extent(stab1)[3:4]), mean(extent(stab2)[3:4]),mean(extent(stab3)[3:4]),  mean(extent(stab4)[3:4]))))
 (sites <- st_as_sf(sites, coords = c("longitude", "latitude"), 
     crs = 4326, agr = "constant"))
-
 
 ```
 
@@ -65,7 +67,10 @@ stab <- stack(file.path(ofolder, paste0( basename,'.gri')))
 theme_set(theme_bw())
 
 world <- ne_countries(scale = "medium", returnclass = "sf")
-sites <- st_transform(sites, crs(world))
+# fr <- raster('C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CopernicusLandCover\\W060N00_ProbaV_LC100_epoch2015_global_v2.0.1_forest-type-layer_EPSG-4326.tif')
+# frp <- rasterToPoints(fr); frp <- data.frame(hdf)
+# colnames(frp) <- c("X","Y","Forest_type")
+
 
 plt <- ggplot(data = world) +
   theme(
@@ -82,8 +87,11 @@ plt <- ggplot(data = world) +
     # annotation_scale(location = "bl", width_hint = 0.5) +
     annotation_north_arrow(location = "br", which_north = "true", 
         pad_x = unit(0, "in"), pad_y = unit(0, "in"),
-        style = north_arrow_fancy_orienteering) #+
+        style = north_arrow_fancy_orienteering) +
     coord_sf(xlim = c(-30, -85), ylim = c(-30, 10), expand = FALSE)
+  # png(file.path(figfolder, 'sites.png'))
+  # print(plt)
+  # dev.off()
   
   ggsave(
   file.path(figfolder, 'sites.png'),
@@ -155,7 +163,7 @@ library(bfast)
 library(lubridate)
 firefolder <- 'C:\\Users\\keers001\\OneDrive - WageningenUR\\RETURN\\Data\\RETURN\\CCI_fire\\'
 
-for (ste in 4:4){# sites 
+for (ste in 2:4){# sites 
   st <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_monthly_max.gri')))
   fr <- stack(file.path(ofolder, paste0('LSTS_SantaRem_area',ste,'_2000_2020_Fire_monthly.gri')))
   stab <- switch(ste,stab1,stab2,stab3,stab4)
@@ -228,7 +236,7 @@ dtsbr <- seq(min(dts), max(dts), by = "1 month")#"1 day"
   pointsize = 15)
     par(mfrow=c(5,1),mar=c(1,6,1,1))
     for (ii in 1:5){
-      plot(zoo(tsii[ii,],dtsst), ylab = 'NBR', type = 'o')
+      plot(zoo(tsii[ii,],dtsst), ylab = 'NBR')
       abline(v=dtsst[frii[ii,]==1], lwd = 2, col = 'red')
       # lines(zoo(frii[ii,],dtsst), col = 'red')
       lines(zoo(trii[ii,],dtsst), col = 'darkgreen')
@@ -372,3 +380,4 @@ qu <- as.numeric(quantile(stab[[si]] , probs = c(0.001,0.25,0.5,0.75,0.999), na.
     lines(zoo(trqii[1,],dtsq), col = 'blue')
   
 ```
+

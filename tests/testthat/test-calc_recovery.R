@@ -6,10 +6,10 @@ test_that("Frazier - annual - too short time series", {
   tdist <- 2
   obspyr <- 1
   shortDenseTS <- FALSE
-  nPre <- 1
+  nPre <- 2
   nDist <- 1
-  nPostMin <- 1
-  nPostMax <- 1
+  nPostMin <- 4
+  nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
 
@@ -20,14 +20,14 @@ test_that("Frazier - annual - too short time series", {
 
 test_that("Frazier - annual", {
 
-  tsio <- c(rep(1,2), seq(-5, -1), rep(-2,1))
+  tsio <- c(rep(1,2), seq(-5, -1), rep(-2,1),1)
   tdist <- 3
   obspyr <- 1
   shortDenseTS <- FALSE
-  nPre <- 1
-  nDist <- 1
-  nPostMin <- 1
-  nPostMax <- 1
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
   pre <- 1
@@ -50,20 +50,20 @@ test_that("Frazier - dense", {
   obspyr <- 12
   shortDenseTS <- TRUE
   nPre <- 2
-  nDist <- 12
+  nDist <- 1
   nPostMin <- 4
   nPostMax <- 5
 
   metrics <- calcFrazier(tsio, tdist, obspyr, shortDenseTS, nPre, nDist, nPostMin, nPostMax)
   pre <- 1
   dist <- mean(tsio[25:36])
-  post <- mean(tsio[73:85])
+  post <- max(tsio[73:84])
   dnbr <- pre-dist
   ari <- post-dist
 
   rri <- ari/dnbr
   r80p <- post/(0.8*pre)
-  yryr <- (post - dist)/4.5
+  yryr <- (mean(tsio[73:84]) - dist)/(4*12)
 
 
   expect_equal(metrics$RRI, rri, tolerance = 1e-4)
@@ -73,35 +73,136 @@ test_that("Frazier - dense", {
 
 test_that("Frazier - segmented", {
 
-  tsio <- c(rep(1,24), seq(-5, -1, length.out=60), rep(-2,12))
-  tdist <- rep(0,96)
-  tdist[25] <- 1
+  tsio <- c(rep(1,24), seq(-5, -1, length.out=60), rep(0,60))
+  tdist <- 25
   obspyr <- 12
-  shortDenseTS <- TRUE
+  shortDenseTS <- F
   nPre <- 2
-  nDist <- 12
+  nDist <- 1
   nPostMin <- 4
   nPostMax <- 5
   h <- 0.1
   timeThres <- 2
-  slpThres <- 2
 
-  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, slpThres)
+  metrics <- calcSegRec(tsio, tdist, maxBreak=F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, seas = F)
   pre <- 1
   dist <- mean(tsio[25:36])
-  post <- mean(tsio[73:85])
+  post <- max(tsio[73:84])
   dnbr <- pre-dist
   ari <- post-dist
 
   rri <- ari/dnbr
   r80p <- post/(0.8*pre)
-  yryr <- (post - dist)/4.5
-  sl <- 4/60
+  yryr <- (mean(tsio[85]) - dist)/(mean(85) - mean(25:36))
 
   expect_equal(metrics$RRI, rri, tolerance = 1e-4)
   expect_equal(metrics$R80P, r80p, tolerance = 1e-4)
   expect_equal(metrics$YrYr, yryr, tolerance = 1e-4)
-  expect_equal(metrics$Sl, sl, tolerance = 1e-2)
+
+  # adjustment of Frazier yryr metric, so it uses more than one observation to define the post-disturbance state
+  shortDenseTS <- T
+  metrics <- calcSegRec(tsio, tdist, maxBreak=F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, seas = F)
+
+  tpert <- seq(tdist,tdist+(nDist*obspyr))
+  ts_post <-  seq(tdist +(nPostMin*obspyr), tdist +(nPostMax*obspyr)-1)
+  deltat <- ts_post-tdist
+  yryr <- (mean(tsio[73:84]) - mean(tsio[25:37]))/(mean(73:84)-mean(25:37))
+  expect_equal(metrics$YrYr, yryr, tolerance = 1e-4)
+
+})
+
+test_that("Frazier - segmented annual - long", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0,8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
+  h <- 0.2
+  seas <- F
+
+  metrics <- calcSegRec(tsio, tdist, maxBreak = T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  pre <- 1
+  dnbr <- 6
+  ari <- 2.5
+
+  rrim <- ari/dnbr
+  r80pm <- tsio[14]/(0.8*pre)
+  yryrm <- (tsio[14] - tsio[9])/5
+
+  expect_equal(metrics$RRI, rrim, tolerance = 1e-4)
+  expect_equal(metrics$R80P, r80pm, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, yryrm, tolerance = 1e-4)
+})
+
+test_that("Frazier - segmented annual - testing the preconditions", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0, 8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 4
+  nPostMax <- 5
+  h <- 0.2
+  seas <- F
+  # max time span between break and disturbance
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+  # pos break
+  tsio <- c(rep(1,8), seq(13, 0, by = -0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+  # neg recovery
+  tsio <- c(rep(1,8), seq(-5, -10, by = -0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+  # second break within recovery period
+  tsio <- c(rep(1,8), seq(-5, -2, by = 0.5),seq(-5, -3, by = 0.5), rep(0, 8))
+  metrics <- calcSegRec(tsio, 2, maxBreak = F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  expect_equal(metrics$RRI, NA, tolerance = 1e-4)
+  expect_equal(metrics$R80P, NA, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, NA, tolerance = 1e-4)
+
+})
+
+test_that("Frazier - segmented annual - short", {
+
+  tsio <- c(rep(1,8), seq(-5, 0, by = 0.5), rep(0,8))
+  tdist <- 9
+  obspyr <- 1
+  shortDenseTS <- FALSE
+  nPre <- 2
+  nDist <- 0
+  nPostMin <- 1
+  nPostMax <- 1
+  h <- 0.2
+  seas <- F
+
+  metrics <- calcSegRec(tsio, tdist, maxBreak = T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres = 2,seas = F)
+  pre <- 1
+  dnbr <- 6
+  ari <- 0.5
+
+  rrim <- ari/dnbr
+  r80pm <- tsio[10]/(0.8*pre)
+  yryrm <- (tsio[10] - tsio[9])/1
+
+  expect_equal(metrics$RRI, rrim, tolerance = 1e-4)
+  expect_equal(metrics$R80P, r80pm, tolerance = 1e-4)
+  expect_equal(metrics$YrYr, yryrm, tolerance = 1e-4)
 })
 
 test_that("Calc recovery indicators from stack using yearly, raw observations", {
@@ -137,8 +238,8 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
 
   # Calculate stability indicators (RRI, R80P, YrYr, Sl)
   out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=T, obspyr=1, inp = 'raw', shortDenseTS = FALSE,
-                                                nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres = 2, slpThres = 2)})
-  names(out) <- c('RRI', 'R80p', 'YrYr', 'Slope', 'missingVal', 'loglik', 'AIC')
+                                                nPre = 2, nDist = 0, nPostMin = 4, nPostMax = 5, h = 0.15, timeThres = 2, seas=F)})
+  names(out) <- c('RRI', 'R80p', 'YrYr', 'missingVal', 'loglik', 'AIC')
   mout <- raster::as.matrix(out)
   # observations that were masked
   msked <- sum(is.na(mout[2:3,]))
@@ -177,7 +278,7 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
   c3yryr <- (1+3)/5 # 5 years post - disturbance value / 5
 
   # masked time series should have NA value for the recovery indicators
-  expect_equal(msked, 14, tolerance = 1e-4)
+  expect_equal(msked, 12, tolerance = 1e-4)
   # case 1 - multiple disturbance dates
   expect_equal(as.numeric(mout[1,1]), c1rri, tolerance = 1e-4)
   expect_equal(as.numeric(mout[1,2]), c1r80p, tolerance = 1e-4)
@@ -190,209 +291,5 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
   expect_equal(as.numeric(mout[5,1]), c3rri, tolerance = 1e-4)
   expect_equal(as.numeric(mout[5,2]), c3r80p, tolerance = 1e-4)
   expect_equal(as.numeric(mout[5,3]), c3yryr, tolerance = 1e-4)
-
-})
-
-test_that("Temporal aggregation", {
-  library(raster)
-  library(lubridate)
-  # mask
-  m <- raster(ncol=3, nrow=3, vals=c(1,1,0,1,1,1,1,1,1))
-  # rasters of time series observations
-  r1<- raster(ncol=3, nrow=3, vals=rep(1, 9))
-  r2<- raster(ncol=3, nrow=3, vals=rep(2, 9))
-  r3<- raster(ncol=3, nrow=3, vals=rep(1, 9))
-  r4<- raster(ncol=3, nrow=3, vals=rep(20, 9))
-  r5<- raster(ncol=3, nrow=3, vals=rep(1, 9))
-  r6<- raster(ncol=3, nrow=3, vals=rep(30, 9))
-  r7<- raster(ncol=3, nrow=3, vals=c(-12,1,1,1,1,1,1,1,1))
-  r8<- raster(ncol=3, nrow=3, vals=c(-12,1,1,1,1,1,1,1,1)+10)
-  r9<- raster(ncol=3, nrow=3, vals=c(-11,1,1,-5,-3,-3,-3,-3,-3))
-  r10<- raster(ncol=3, nrow=3, vals=c(-11,1,1,-5,-3,-3,-3,-3,-3)-10)
-  r11<- raster(ncol=3, nrow=3, vals=c(-10,1,1,-4,-2,-2,-2,-2,-2))
-  r12<- raster(ncol=3, nrow=3, vals=c(-10,1,1,-4,-2,-2,-2,-2,-2)-20)
-  r13<- raster(ncol=3, nrow=3, vals=c(-9,1,1,-3,-1,-1,-1,-1,-1))
-  r14<- raster(ncol=3, nrow=3, vals=c(-9,1,1,-3,-1,-1,-1,-1,-1)-30)
-  r15<- raster(ncol=3, nrow=3, vals=c(-8,1,1,-2,0,0,0,0,0))
-  r16<- raster(ncol=3, nrow=3, vals=c(-8,1,1,-2,0,0,0,0,0)-40)
-  r17<- raster(ncol=3, nrow=3, vals=c(-7,1,1,-1,1,1,1,1,1))
-  r18<- raster(ncol=3, nrow=3, vals=c(-7,1,1,-1,1,1,1,1,1)-50)
-  r19<- raster(ncol=3, nrow=3, vals=c(-6,1,1,0,1,1,1,1,1))
-  r20<- raster(ncol=3, nrow=3, vals=c(-6,1,1,0,1,1,1,1,1)-60)
-  #create stack
-  st <- stack(m,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,
-              r11,r12,r13,r14,r15,r16,r17,r18,r19,r20)
-  # dates associated with observations
-  dts <- as.Date(c('2001-01-02','2001-01-03','2001-02-02','2001-02-04','2001-03-02','2001-03-04','2001-04-02','2001-04-05','2001-05-02','2001-05-12',
-                   '2001-06-02','2001-06-03','2001-07-02','2001-07-22','2001-08-02','2001-08-12','2001-09-02','2001-09-22','2001-12-02','2001-10-02'))
-  # names(st) <- dts
-  dts <- as.Date(dts, format = "X%Y.%m.%d") ## needed as input in the helper function of get_m_agg
-
-  # create time series of monthly max
-  brmomax <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'monthly')})
-  names(brmomax) <- as.Date(toRegularTS(dts, dts, fun = 'max', resol = 'monthly'))
-  # create time series of monthly mean values
-  brmomean <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'mean', resol = 'monthly')})
-  names(brmomean) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'monthly'))
-  # create daily time series
-  brday <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'daily')})
-  names(brday) <- date_decimal(as.numeric(time(bfastts(rep(1,length(dts)), dts, type = "irregular"))))
-  # create quarterly time series
-  brquart <- calc(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'quart')})
-  names(brquart) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'quart'))
-
-
-  # convert to matrix'
-  mmomax <- raster::as.matrix(brmomax)
-  mmomean <- raster::as.matrix(brmomean)
-  mday <- raster::as.matrix(brday)
-  mquart <-  raster::as.matrix(brquart)
-
-  # case 1 - monthly max
-  expect_equal(as.numeric(mmomax[1,]), c(2,20,30,-2,-11,-10,-9,-8,-7,-66,NA,-6), tolerance = 1e-4)
-  # case 2 - monthly mean
-  expect_equal(as.numeric(mmomean[1,]), c(1.5,10.5,15.5,-7.0,-16.0,-20.0,-24.0,-28.0,-32.0,-66.0,NA,-6.0), tolerance = 1e-4)
-  # case 3 - daily
-  expect_equal(as.numeric(mday[1,c(1,2,32,34,60,62,91,94,121,131,152,153,182,202,213,223,244,264,274,335)]),
-               c(1,2,1,20,1,30,-12,-2,-11,-21,-10,-30,-9,-39,-8,-48,-7,-57,-66,-6), tolerance = 1e-4)
-  # case 4 - quarterly
-  expect_equal(as.numeric(mquart[1,]),c(30,-2, -7,-6))
-})
-
-
-test_that("Prepare fire time series", {
-  library(raster)
-  #mask
-  m <- raster(ncol=3, nrow=3, vals=c(1,1,0,1,1,1,1,1,1))
-  # confidence
-  cl1<- raster(ncol=3, nrow=3, vals=rep(0, 9))
-  cl2<- raster(ncol=3, nrow=3, vals=c(96,0,0,0,0,0,15,0,0))
-  cl3<- raster(ncol=3, nrow=3, vals=c(0,97,0,0,0,0,0,0,0))
-  cl4<- raster(ncol=3, nrow=3, vals=c(0,0,97,0,0,0,0,0,0))
-  cl5<- raster(ncol=3, nrow=3, vals=c(0,0,0,99,0,0,0,0,0))
-  cl6<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,98,0,0,0,0))
-  cl7<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,96,0,0,0))
-  cl8<- raster(ncol=3, nrow=3, vals=c(99,0,0,0,0,0,99,0,0))
-  cl9<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,99,97))
-  cl10<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-  cl11<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-  cl12<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-
-  # day of observation
-  jd1<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-  jd2<- raster(ncol=3, nrow=3, vals=c(33,0,0,0,0,0,0,0,0))# 2 feb
-  jd3<- raster(ncol=3, nrow=3, vals=c(0,62,0,0,0,0,0,0,0))# 3 mar
-  jd4<- raster(ncol=3, nrow=3, vals=c(0,0,94,0,0,0,0,0,0))# 4 apr
-  jd5<- raster(ncol=3, nrow=3, vals=c(0,0,0,125,0,0,0,0,0))#5 may
-  jd6<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,157,0,0,0,0))#6jun
-  jd7<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,188,0,0,0))#7jul
-  jd8<- raster(ncol=3, nrow=3, vals=c(220,0,0,0,0,0,232,0,0))#8aug & 20 aug
-  jd9<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,252,254))#9sep 11sep
-  jd10<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-  jd11<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-  jd12<- raster(ncol=3, nrow=3, vals=c(0,0,0,0,0,0,0,0,0))
-
-  #create stack
-  st <- stack(m,cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8,cl9,cl10,cl11,cl12,
-              jd1,jd2,jd3,jd4,jd5,jd6,jd7,jd8,jd9,jd10,jd11,jd12)
-  dts <- seq(as.Date(paste0(2001,'-01-01')), as.Date(paste0(2001,'-12-31')), by = "1 month")
-
-  firemo <- calc(st, function(x){createFireStack(x, dts, resol = 'monthly', thres = 95)})
-  fireday <- calc(st, function(x){createFireStack(x, dts, resol = 'daily', thres = 95)})
-
-  mfmo <- raster::as.matrix(firemo)
-  mfday <- raster::as.matrix(fireday)
-
-  d1 <- rep(0,365)
-  d1[c(33,220)] <- 1
-  d7 <- rep(0,365)
-  d7[232] <- 1
-
-  # case 1 - monthly
-  expect_equal(as.numeric(mfmo[1,]), c(0,1,0,0,0,0,0,1,0,0,0,0), tolerance = 1e-4)
-  expect_equal(as.numeric(mfmo[7,]), c(0,0,0,0,0,0,0,1,0,0,0,0), tolerance = 1e-4)
-  expect_equal(sum(is.na(mfmo[3,])), 12, tolerance = 1e-4)
-  # case 2 - daily
-  expect_equal(as.numeric(mfday[1,]), d1, tolerance = 1e-4)
-  expect_equal(as.numeric(mfday[7,]), d7, tolerance = 1e-4)
-
-})
-
-test_that("Mask Landsat 4-7 time series", {
-  # test cloud layer
-  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
-  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
-  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
-  NBR <- stack(NBR1,NBR2)
-  cloud1 <- raster(ncol=3, nrow=3, vals=c(0,1,2,4,8,12,16,20,24))
-  cloud2 <- raster(ncol=3, nrow=3, vals=c(32,34,36,40,48,52,56,0,0))
-  cloud <- stack(cloud1,cloud2)
-  pix <- stack(raster(ncol=3, nrow=3, vals=rep(66,9)),raster(ncol=3, nrow=3, vals=rep(66,9)))
-  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  br1 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
-
-  mx1 <- raster::as.matrix(br1)# convert to matrix'
-  expect_equal(sum(is.na(mx1)),16)
-  expect_equal(as.numeric(mx1[2,1]),.2)
-  expect_equal(as.numeric(mx1[8,2]),1.8)
-
-  # test pixel layer
-  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
-  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
-  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
-  NBR <- stack(NBR1,NBR2)
-  cloud <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  pix <- stack(raster(ncol=3, nrow=3, vals=c(1,1,66,130,68,132,72,136,66)),raster(ncol=3, nrow=3, vals=c(80,112,144,176,96,160,224,130,130)))
-  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  br2 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
-
-  mx2 <- raster::as.matrix(br2)
-  expect_equal(sum(is.na(mx2)),15)
-  expect_equal(as.numeric(mx2[3,1]),.3)
-  expect_equal(as.numeric(mx2[4,1]),.4)
-  expect_equal(as.numeric(mx2[8,2]),1.8)
-
-  # test radsat layer
-  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
-  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
-  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
-  NBR <- stack(NBR1,NBR2)
-  cloud <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  pix <- stack(raster(ncol=3, nrow=3, vals=rep(66,9)),raster(ncol=3, nrow=3, vals=rep(66,9)))
-  radsat <- stack(raster(ncol=3, nrow=3, vals=c(0,0,16,16,128,144,0,0,0)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  br3 <- calc(stack(msk, NBR, cloud, pix, radsat), function(x){maskL47Stack(x)})
-
-  mx3 <- raster::as.matrix(br3)
-  expect_equal(sum(is.na(mx3)),8)
-
-})
-
-test_that("Mask Landsat 8 time series", {
-    # test pixel layer
-  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
-  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
-  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
-  NBR <- stack(NBR1,NBR2)
-  pix <- stack(raster(ncol=3, nrow=3, vals=c(1,1,322,386, 834, 898, 1346,324, 388)),raster(ncol=3, nrow=3, vals=c(328,336,352,1352,944,992,400,880,880)))
-  radsat <- stack(raster(ncol=3, nrow=3, vals=rep(0,9)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  br2 <- calc(stack(msk, NBR, pix, radsat), function(x){maskL8Stack(x)})
-
-  mx2 <- raster::as.matrix(br2)
-  expect_equal(sum(is.na(mx2)),13)
-  expect_equal(as.numeric(mx2[3,1]),.3)
-  expect_equal(as.numeric(mx2[4,1]),.4)
-  expect_equal(as.numeric(mx2[7,1]),.7)
-
-  # test radsat layer
-  msk<- raster(ncol=3, nrow=3, vals=c(0,1,1,1,1,1,1,1,0))
-  NBR1 <- raster(ncol=3, nrow=3, vals=seq(.1,.9,by=.1))
-  NBR2 <- raster(ncol=3, nrow=3, vals=seq(1.1,1.9,by=.1))
-  NBR <- stack(NBR1,NBR2)
-  pix <- stack(raster(ncol=3, nrow=3, vals=rep(322,9)),raster(ncol=3, nrow=3, vals=rep(322,9)))
-  radsat <- stack(raster(ncol=3, nrow=3, vals=c(0,0,32,32,128,160,0,0,0)),raster(ncol=3, nrow=3, vals=rep(0,9)))
-  br3 <- calc(stack(msk, NBR, pix, radsat), function(x){maskL8Stack(x)})
-
-  mx3 <- raster::as.matrix(br3)
-  expect_equal(sum(is.na(mx3)),8)
 
 })
