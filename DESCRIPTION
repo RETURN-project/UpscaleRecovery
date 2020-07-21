@@ -14,11 +14,11 @@ LazyData: true
 Imports: bfast,
          stats,
          strucchange,
+         lubridate,
          zoo
 Suggests: testthat,
           knitr,
           rmarkdown,
-          lubridate,
           raster
 RoxygenNote: 7.1.1
 VignetteBuilder: knitr
