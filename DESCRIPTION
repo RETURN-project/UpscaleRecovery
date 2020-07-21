@@ -15,6 +15,7 @@ Imports: bfast,
          stats,
          strucchange,
          lubridate,
+         sde,
          zoo
 Suggests: testthat,
           knitr,
