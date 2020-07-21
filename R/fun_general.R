@@ -136,10 +136,12 @@ createFireStack <- function(x, dts, resol, thres)
       len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "3 months"))
     }
   res <- matrix(NA, length(i), len)
-  if(sum(i) == 1) {
-    res[i,] <- toFireTS(x[i,], dts, resol = resol, thres = thres)
-  } else if(sum(i) > 1) {
-    res[i,] <- t(apply(x[i,], 1, toFireTS, dts, resol, thres))
+  if(sum(i, na.rm = T)>0){
+    if(sum(i) == 1) {
+      res[i,] <- toFireTS(x[i,], dts, resol = resol, thres = thres)
+    } else if(sum(i) > 1) {
+      res[i,] <- t(apply(x[i,], 1, toFireTS, dts, resol, thres))
+    }
   }
   res
 }

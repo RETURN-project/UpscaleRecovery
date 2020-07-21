@@ -50,3 +50,4 @@ the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 \description{
 Calculate recovery for a single time series
 }
+

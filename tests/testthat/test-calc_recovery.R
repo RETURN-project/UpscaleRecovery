@@ -293,4 +293,3 @@ test_that("Calc recovery indicators from stack using yearly, raw observations", 
   expect_equal(as.numeric(mout[5,3]), c3yryr, tolerance = 1e-4)
 
 })
-

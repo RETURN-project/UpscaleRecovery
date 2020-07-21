@@ -50,3 +50,4 @@ a raster with the RRI, R80P, YrYr and the slope of the pos-disturbance segment
 \description{
 Calculate recovery indicators from a time series stack
 }
+

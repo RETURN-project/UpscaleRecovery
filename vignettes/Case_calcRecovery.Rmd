@@ -19,6 +19,9 @@ This vignette calculates recovery indicators from pixels that experienced fire. 
 ```{r}
 library(raster)
 library(UpscaleRecovery)
+library(bfast)
+library(strucchange)
+library(lubridate)
 ```
 
 ## Inputs
@@ -172,7 +175,8 @@ for(i in 1:dim(recSet)[1]){# iterate over the settings to derive the recovery in
                                 recSet$timeThres[i], '_', 
                                 recSet$seas[i]),
               overwrite=TRUE)
+
 }
+end_time_rec <- Sys.time()
 
 ```
-
