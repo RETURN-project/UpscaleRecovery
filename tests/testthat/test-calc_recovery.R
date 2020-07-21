@@ -73,11 +73,10 @@ test_that("Frazier - dense", {
 
 test_that("Frazier - segmented", {
 
-  tsio <- c(rep(1,24), seq(-5, -1, length.out=60), rep(-2,12))
+  tsio <- c(rep(1,24), seq(-5, -1, length.out=60), rep(0,60))
   tdist <- 25
-  tdist[25] <- 1
   obspyr <- 12
-  shortDenseTS <- TRUE
+  shortDenseTS <- F
   nPre <- 2
   nDist <- 1
   nPostMin <- 4
@@ -85,20 +84,31 @@ test_that("Frazier - segmented", {
   h <- 0.1
   timeThres <- 2
 
-  metrics <- calcSegRec(tsio, tdist, maxBreak=T, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres)
+  metrics <- calcSegRec(tsio, tdist, maxBreak=F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, seas = F)
   pre <- 1
   dist <- mean(tsio[25:36])
-  post <- mean(tsio[73:84])
+  post <- max(tsio[73:84])
   dnbr <- pre-dist
   ari <- post-dist
 
   rri <- ari/dnbr
   r80p <- post/(0.8*pre)
-  yryr <- (mean(tsio[73:84]) - dist)/(4*12)
+  yryr <- (mean(tsio[85]) - dist)/(mean(85) - mean(25:36))
 
   expect_equal(metrics$RRI, rri, tolerance = 1e-4)
   expect_equal(metrics$R80P, r80p, tolerance = 1e-4)
   expect_equal(metrics$YrYr, yryr, tolerance = 1e-4)
+
+  # adjustment of Frazier yryr metric, so it uses more than one observation to define the post-disturbance state
+  shortDenseTS <- T
+  metrics <- calcSegRec(tsio, tdist, maxBreak=F, obspyr, h, shortDenseTS, nPre, nDist, nPostMin, nPostMax, timeThres, seas = F)
+
+  tpert <- seq(tdist,tdist+(nDist*obspyr))
+  ts_post <-  seq(tdist +(nPostMin*obspyr), tdist +(nPostMax*obspyr)-1)
+  deltat <- ts_post-tdist
+  yryr <- (mean(tsio[73:84]) - mean(tsio[25:37]))/(mean(73:84)-mean(25:37))
+  expect_equal(metrics$YrYr, yryr, tolerance = 1e-4)
+
 })
 
 test_that("Frazier - segmented annual - long", {
