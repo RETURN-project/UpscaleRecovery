@@ -218,3 +218,5 @@ test_that("Prepare fire time series", {
   expect_equal(as.numeric(mfday[7,]), d7, tolerance = 1e-4)
 
 })
+
+
