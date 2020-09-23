@@ -10,6 +10,102 @@ loadRData <- function(fileName){
   get(ls()[ls() != "fileName"])
 }
 
+#' Set and generate folder structure to store data for the FORCE processing workflow
+#'
+#' @param forcefolder the main folder where all data needs to be stored (full path)
+#'
+#' @return generates a folder structure
+#' @export
+#'
+setFolders <- function(forcefolder){
+  if (!dir.exists(forcefolder)){
+    stop('directory does not exist')
+  }
+  tmpfolder <- file.path(forcefolder, 'temp')
+  l1folder <- file.path(forcefolder, 'level1')
+  l2folder <- file.path(forcefolder, 'level2')
+  queuefolder <- file.path(forcefolder, 'level1')
+  queuefile <- 'queue.txt'
+  demfolder <- file.path(forcefolder, 'misc','dem')
+  wvpfolder <- file.path(forcefolder, 'misc','wvp')
+  logfolder <- file.path(forcefolder, 'log')
+  paramfolder <- file.path(forcefolder, 'param')
+  paramfile <- 'l2param.prm'
+  lcfolder <- file.path(forcefolder, 'misc','lc')# raw land cover data
+  tcfolder <- file.path(forcefolder, 'misc','tc')# raw tree cover data
+  firefolder <- file.path(forcefolder, 'misc','fire')# raw fire data
+  S2auxfolder <- file.path(forcefolder, 'misc', 'S2')# auxiliary S2 data (eg tile grid)
+
+  demlogfile <- file.path(logfolder,'DEM.txt')
+  wvplogfile <- file.path(logfolder,'WVP.txt')
+  landsatlogfile <- file.path(logfolder, 'Landsat.txt')
+  lclogfile <- file.path(logfolder, 'LC.txt')
+  firelogfile <- file.path(logfolder,'fire.txt')
+  tclogfile <- file.path(logfolder, 'tc.txt')
+  Sskiplogfile <- file.path(logfolder, 'Sskip.txt')
+  Ssuccesslogfile <- file.path(logfolder, 'Ssuccess.txt')
+  Smissionlogfile <- file.path(logfolder, 'Smission.txt')
+  Sotherlogfile <- file.path(logfolder, 'Sother.txt')
+
+  if(!dir.exists(forcefolder)){dir.create(forcefolder)}
+  if(!dir.exists(tmpfolder)){dir.create(tmpfolder)}
+  if(!dir.exists(l1folder)){dir.create(l1folder)}
+  if(!dir.exists(file.path(l1folder,'landsat'))){dir.create(file.path(l1folder,'landsat'))}
+  if(!dir.exists(file.path(l1folder,'sentinel'))){dir.create(file.path(l1folder,'sentinel'))}
+  if(!dir.exists(l2folder)){dir.create(l2folder)}
+  if(!dir.exists(queuefolder)){dir.create(queuefolder)}
+  if(!dir.exists(demfolder)){dir.create(demfolder, recursive = TRUE)}
+  if(!dir.exists(wvpfolder)){dir.create(wvpfolder, recursive = TRUE)}
+  if(!dir.exists(logfolder)){dir.create(logfolder)}
+  if(!dir.exists(S2auxfolder)){dir.create(S2auxfolder)}
+
+  if(!file.exists(demlogfile)){file.create(demlogfile)}# logfile for DEM
+  if(!file.exists(wvplogfile)){file.create(wvplogfile)}# logfile for WVP
+  if(!file.exists(landsatlogfile)){file.create(landsatlogfile)}# logfile for DEM
+  if(!file.exists(lclogfile)){file.create(lclogfile)}# logfile for DEM
+  if(!file.exists(firelogfile)){file.create(firelogfile)}# logfile for DEM
+  if(!file.exists(tclogfile)){file.create(tclogfile)}# logfile for DEMS
+  if(!file.exists(Sskiplogfile)){file.create(Sskiplogfile)}# logfile for skipped scenes
+  if(!file.exists(Ssuccesslogfile)){file.create(Ssuccesslogfile)}# logfile for successful scenes
+  if(!file.exists(Smissionlogfile)){file.create(Smissionlogfile)}# logfile for scenes with an unknown mission
+  if(!file.exists(Sotherlogfile)){file.create(Sotherlogfile)}# logfile for scenes with an unrecoginized processing status
+  if(!file.exists(file.path(queuefolder,queuefile))){file.create(file.path(queuefolder,queuefile))}# generate a queue file
+  if(!dir.exists(paramfolder)){dir.create(paramfolder)}
+  if(!dir.exists(lcfolder)){dir.create(lcfolder)}
+  if(!dir.exists(tcfolder)){dir.create(tcfolder)}
+  if(!dir.exists(firefolder)){dir.create(firefolder)}
+
+  out <- c(tmpfolder, l1folder, l2folder, queuefolder, queuefile, demfolder, wvpfolder, logfolder, paramfolder, paramfile,
+           lcfolder, tcfolder, firefolder, S2auxfolder, demlogfile, wvplogfile, landsatlogfile, lclogfile, firelogfile, tclogfile, Sskiplogfile, Ssuccesslogfile, Smissionlogfile, Sotherlogfile)
+  names(out) <- c('tmpfolder', 'l1folder', 'l2folder', 'queuefolder', 'queuefile', 'demfolder', 'wvpfolder', 'logfolder', 'paramfolder', 'paramfile',
+                  'lcfolder', 'tcfolder', 'firefolder', 'S2auxfolder', 'demlogfile', 'wvplogfile', 'landsatlogfile', 'lclogfile', 'firelogfile', 'tclogfile','Sskiplogfile', 'Ssuccesslogfile', 'Smissionlogfile', 'Sotherlogfile')
+  return(out)
+
+}
+
+#' Extract the extent of each grid tile that covers an area of interest
+#'
+#' @param l2folder directory of the level2 data cube
+#' @param ext extent of the area of interest
+#'
+#' @return list of extents
+#' @import raster
+#' @import sp
+#' @export
+#'
+getGrid <- function(cubefolder, ext){
+  system(paste0("force-tabulate-grid ", cubefolder, " ", ext[3]," ", ext[4]," ", ext[1]," ", ext[2], " shp"), intern = TRUE, ignore.stderr = TRUE)
+  # load shapefile
+  p <- shapefile(file.path(cubefolder, 'shp',"grid.shp"))
+  # transform crs to crs of interest
+  p_wgs <- spTransform(p, CRS("+proj=longlat +datum=WGS84"))
+  # extent of each polygon/tile
+  elist <- lapply(1:length(p_wgs), function(i) extent(p_wgs[i,]))
+  names(elist) <- p_wgs$Tile_ID
+  unlink(file.path(cubefolder, 'shp'), recursive = T)
+  return(elist)
+}
+
 #' Convert time series to annual frequency: The toAnnualTS function converts a time series with n observations per year to an annual time series (one observation per year). The main concept is to select observations per year closest to a given day of year that have no missing value (NA). Here, the day of year for which the seasonality is maximum is being used.
 #'
 #' @param tsseas vector of observations (time series) representing the seasonal component of the time series to be converted
@@ -215,13 +311,15 @@ calcNBR <- function(NIR,SWIR){
 #'
 #' @return a masked image
 #' @export
+#' @import terra
 #'
 mskQA <- function(im, qaim, valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aero = 0, subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = 0, wvp = 0){
   # QA values of pixels that shouldn't be masked
   toKeep <- getQAvals(valid, cloud, shadow, snow, water, aero, subzero, sat, sunZen, illum, slope, wvp)
   # make raster with 0 values for pixels that should be masked and 1 for pixels that should be kept
   msk <- qaim
-  msk[] <- 0
+  values(msk) <- rep(0,size(qaim))
+  # msk[] <- 0
   for(i in 1:length(toKeep)){
     msk[qaim == toKeep[i]] <- 1
   }
@@ -304,13 +402,13 @@ BinToDec <- function(x){
 
 #' Fix the time span of a multi-temporal raster stack to a user defined time window
 #'
-#' @param br raster stack
+#' @param br terra raster stack
 #' @param starttime start date of the desired time span (given as a numeric vector containing the year, month and day)
 #' @param endtime end date of the desired time span (given as a numeric vector containing the year, month and day)
 #' @param tempRes temporal resolution of the raster stack
 #' @param dtsbr vector of dates (Date object) associated with the raster stack
 #'
-#' @return raster stack with adjusted time span
+#' @return terra raster stack with adjusted time span
 #' @import lubridate
 #' @export
 #'
@@ -319,7 +417,7 @@ setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
   names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
   # make sure that image stack covers time period of interest
   rstNA <- br[[1]]
-  rstNA[] <- NA # empty image
+  values(rstNA) <- rep(NA, ncell(rstNA)) # empty image
   startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date
   endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
   dtstot <- seq(startyr, endyr, by = tres[tempRes])
@@ -328,14 +426,17 @@ setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
   out <- out[[which((dtsbr>=min(dtstot)) & (dtsbr<=max(dtstot)))]]# remove observations that fall outside the study period
   npre <- sum(dtstot<min(dtsbr))# missing dates at the start of the study period
   npost <- sum(dtstot>max(dtsbr))# missing dates at the end of the study period
-  if(npre>0){for(i in 1:npre){out <- addLayer(rstNA, out)}}
+  if(npre>0){for(i in 1:npre){out <- c(rstNA, out)}}
+  if(npost>0){for(i in 1:npost){out <- c(out,rstNA)}}
+
+  # if(npre>0){for(i in 1:npre){out <- c(rstNA, out)}}
   # else{# add observations at the beginning if needed
     # remove observations before the start of the study period if needed
   #   ind <- which(dtsbr>=min(dtstot))
   #   dtsbr <- dtsbr[ind]
   #   out <- out[[ind]]
   # }
-  if(npost>0){for(i in 1:npost){out <- addLayer(out,rstNA)}}
+  # if(npost>0){for(i in 1:npost){out <- addLayer(out,rstNA)}}
   # else{# add observations at the end if needed
   #   # remove observations after the end of the study period if needed
   #   ind <- which(dtsbr<=max(dtstot))
@@ -344,3 +445,28 @@ setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
   names(out) <- dtstot
   return(out)
 }
+
+#' Set terra raster values outside area of interest to 0
+#'
+#' @param fmask a terra raster layer
+#' @param ext extent of area of interest (vector with xmin, xmax, ymin, ymax), expressed as longitude and latitude
+#'
+#' @return terra raster layer
+#' @export
+#' @import terra
+#'
+maskAOI <- function(fmask, ext){
+  # first generate a raster with value 0 outside the area of interest and 1 inside the area of interest
+  z <- cbind(object=1, part=1, rbind(c(ext[1],ext[4]),
+                                     c(ext[2],ext[4]),
+                                     c(ext[2],ext[3]),
+                                     c(ext[1],ext[3])), hole=0)
+  colnames(z)[3:4] <- c('x','y')
+  z <- data.frame(z)
+  aoi <- terra::vect(z, type="polygons", crs = CRS("+init=epsg:4326"))
+  aoi <- terra::project(aoi,showP4(crs(fmask)))
+  aoi <- rasterize(aoi, fmask, field=1, background=0)
+  fmask[aoi == 0] <- 0# set all values of the mask layer outside the area of interest to 0
+  return(fmask)
+}
+
