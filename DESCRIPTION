@@ -18,7 +18,8 @@ Imports: bfast,
          strucchange,
          lubridate,
          sde,
-         zoo
+         zoo,
+         terra
 Suggests: testthat,
           knitr,
           rmarkdown,
