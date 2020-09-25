@@ -22,7 +22,8 @@ Imports: bfast,
          terra,
          plyr,
          raster,
-         sp
+         sp,
+         rgdal
 Suggests: testthat,
           knitr,
           rmarkdown,
