@@ -148,19 +148,16 @@ toRegularTS <- function(tsi, dts, fun, resol){
     z <- zoo(tsi, dts) ## create a zoo (time) series
     if(fun == 'max'){
       mz <- as.ts(aggregate(z, as.yearmon, mmax)) ## max
-    }
-    if(fun == 'mean'){
-      mz <- as.ts(aggregate(z, as.yearmon, mean)) ## mean
-    }
-  }else if (resol == 'daily'){
+    } else if(fun == 'mean'){
+      mz <- as.ts(aggregate(z, as.yearmon, mmean)) ## mean
+    }}else if(resol == 'daily'){
     mz <- bfastts(tsi, dts, type = "irregular")
-  }else if (resol == 'quart'){
-    z <- zoo(tsi, dts) ## create a zoo (time) series
+  }else if(resol == 'quarterly'){
+    z <- zoo(c(NA,tsi), c(as.Date(paste0(format(min(dts),'%Y'),'-01-01')),dts)) ## create a zoo (time) series
     if(fun == 'max'){
       mz <- as.ts(aggregate(z, as.yearqtr, mmax)) ## max
-    }
-    if(fun == 'mean'){
-      mz <- as.ts(aggregate(z, as.yearqtr, mean)) ## mean
+    } else if(fun == 'mean'){
+      mz <- as.ts(aggregate(z, as.yearqtr, mmean)) ## mean
     }
   }
    return(mz)
@@ -178,19 +175,18 @@ toRegularTS <- function(tsi, dts, fun, resol){
 #' @export
 toRegularTSStack <- function(x, dts, fun, resol)
 {
-   msk <- x[,1]
+   msk <- x[1]# mask value for the time series
    msk[is.na(msk)] <- 0
-   x <- x[,-1]
-   mask <- apply(x, 1, FUN = function(x) { sum(is.na(x)) / length(x) } )
-   i <- ((mask < 1) & (msk == 1))
-  len <- length(toRegularTS(dts, dts, fun=fun, resol = resol))
-  res <- matrix(NA, length(i), len)
-  if(sum(i) == 1) {
-    res[i,] <- toRegularTS(x[i,], dts, fun=fun, resol = resol)
-  } else if(sum(i) > 1) {
-    res[i,] <- t(apply(x[i,], 1, toRegularTS, dts, fun, resol))
-  }
-  res
+   x <- x[-1]# time series
+   missval <- sum(is.na(x)) / length(x) # fraction of missing values
+   len <- length(toRegularTS(dts, dts, fun=fun, resol = resol))# length of output time series
+   if((missval < 1) & (msk == 1)){
+     res <- toRegularTS(x, dts, fun=fun, resol = resol)
+     if(length(res) != len){res <- rep(NA,len)}
+   } else{
+     res <- rep(NA,len)
+   }
+  return(res)
 }
 
 #' Helper function for the toRegularTSStack function
@@ -208,76 +204,19 @@ mmax <- function(x) {
   return(out)
 }
 
-
-#' Convert CCI fire stack to a stack with a predefined temporal resolution and containing the value 0 when no fire is present and 1 if a fire is present
+#' Helper function for the toRegularTSStack function
 #'
-#' @param x stack of CCI fire imagery, the first layer contains a mask (here the value 0 denotes that the pixel should not be included, the value 1 denotes that the pixel should be included), followed by n fire confidence layers and n fire doy layers
-#' @param dts dates associated with the stack
-#' @param resol the desired temporal resolution of the output data
-#' @param thres threshold on the fire confidence layer, only fires having a confidence higher than the threshold are included
+#' @param x vector of observations
 #'
-#' @return a stack with with a predefined temporal resolution and containing the value 0 when no fire is present and 1 if a fire is present
+#' @return the mean value of the vector
 #' @export
-createFireStack <- function(x, dts, resol, thres)
-{
-  msk <- x[,1]
-  x <- x[,-1]
-  i <- (msk == 1)
-  strtyr <- format(dts[1], "%Y")
-  endyr <- format(dts[length(dts)], "%Y")
-  if(resol == 'monthly'){
-    len <- length(dts)}else if(resol == 'daily'){
-      len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "1 day"))
-    }else if (resol == 'quart'){
-      len <- length(seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "3 months"))
-    }
-  res <- matrix(NA, length(i), len)
-  if(sum(i, na.rm = T)>0){
-    if(sum(i) == 1) {
-      res[i,] <- toFireTS(x[i,], dts, resol = resol, thres = thres)
-    } else if(sum(i) > 1) {
-      res[i,] <- t(apply(x[i,], 1, toFireTS, dts, resol, thres))
-    }
+mmean <- function(x) {
+  if(length(which.max(x)) == 0) {
+    out <- NA
+  } else {
+    out <- as.numeric(mean(x, na.rm = T))
   }
-  res
-}
-
-#' Create a time series with the desired temporal resolution that has the value 0 if no fire occurs and the value 1 if a fire occurs
-#'
-#' @param x a time series, the first n values contain the fire confidence values, the subsequent n values the doy of the fires
-#' @param dts date values associated with the time series observations (Date object)
-#' @param resol desired temporal resolution of the output
-#' @param thres threshold on the fire confidence (value between 0 and 100). The higher the confidence value, the more likely the fire really occured. Only fires with a value above the threshold are taken into account.
-#'
-#' @return vector with 0 if no fire occurs and 1 if a fire occurs
-#' @export
-toFireTS <- function(x, dts, resol, thres = 95){
-  x <- as.numeric(x)
-  len <- length(x)
-  cl <- x[1:(len/2)] # confidence values
-  jd <- x[(1+(len/2)):len] # doy of fire
-  if(resol == 'monthly'){
-    out <- rep(0,length(cl)) # initialise a vector of zeros
-    out[cl>thres & jd>0] <- 1 # dates with high fire confidence and doy of fire > 0 are set to 1
-  }else if (resol == 'daily'){
-    # create daily time series and associated dates
-    strtyr <- format(dts[1], "%Y") # start year of the fire dataset
-    endyr <- format(dts[length(dts)], "%Y") # end year of the fire dataset
-    tsdts <- seq(as.Date(paste0(strtyr,'-01-01')), as.Date(paste0(endyr,'-12-31')), by = "1 day")  # all potential fire dates
-    out <- rep(0,length(tsdts))# initialise output vector with zeros
-
-    # get timing of fires
-    ind <- which(cl>thres & jd>0) # find observations with high fire confidence and doy of fire > 0
-    fireyr <- format(dts[ind], "%Y") # year of the observed fires
-    firedoy <- jd[ind] # doy of the observed fires
-    firedate <- as.Date(paste0(fireyr,'-',firedoy),'%Y-%j')# create fire observation dates
-    out[tsdts %in% firedate] = 1# set fire observation dates to 1
-  }else if (resol == 'quart'){
-    outm <- rep(0,length(cl)) # initialise a vector of zeros
-    outm[cl>thres & jd>0] <- 1 # dates with high fire confidence and doy of fire > 0 are set to 1
-    out <- toRegularTS(outm, dts, 'max', 'quart')
-  }
-  out
+  return(out)
 }
 
 #' Calculate the Normalized Burn ratio
@@ -378,9 +317,9 @@ getQAvals <- function(valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aer
 #'
 getQA <- function(valid = 0, cloud = 0, shadow = 0, snow = 0, water = 0, aero = 0, subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = 0, wvp = 0){
   # convert the two bit numbers
-  bcloud <- paste(as.numeric(intToBits(cloud)[1:2]), collapse = '')
-  baero <- paste(as.numeric(intToBits(aero)[1:2]), collapse = '')
-  billum <- paste(as.numeric(intToBits(illum)[1:2]), collapse = '')
+  bcloud <- paste(as.numeric(rev(intToBits(cloud)[1:2])), collapse = '')
+  baero <- paste(as.numeric(rev(intToBits(aero)[1:2])), collapse = '')
+  billum <- paste(as.numeric(rev(intToBits(illum)[1:2])), collapse = '')
   # combine bits to bitword
   bitword <- paste0(0,wvp,slope,billum,sunZen,sat,subzero,baero,water,snow,shadow,bcloud, valid)
   # convert bitword to integer
@@ -403,8 +342,8 @@ BinToDec <- function(x){
 #' Fix the time span of a multi-temporal raster stack to a user defined time window
 #'
 #' @param br terra raster stack
-#' @param starttime start date of the desired time span (given as a numeric vector containing the year, month and day)
-#' @param endtime end date of the desired time span (given as a numeric vector containing the year, month and day)
+#' @param starttime start date of the desired time span (Date object)
+#' @param endtime end date of the desired time span (Date object)
 #' @param tempRes temporal resolution of the raster stack
 #' @param dtsbr vector of dates (Date object) associated with the raster stack
 #'
@@ -412,14 +351,12 @@ BinToDec <- function(x){
 #' @import lubridate
 #' @export
 #'
-setPeriod <- function(br, starttime, endtime,tempRes, dtsbr){
+setPeriod <- function(br, startyr, endyr,tempRes, dtsbr){
   tres <- c('1 month', '3 months', '1 day', '1 year')
   names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
   # make sure that image stack covers time period of interest
   rstNA <- br[[1]]
   values(rstNA) <- rep(NA, ncell(rstNA)) # empty image
-  startyr <- as.Date(paste0(starttime[1],'-',starttime[2],'-',starttime[3])) # create date object from start date
-  endyr <- as.Date(paste0(endtime[1],'-',endtime[2],'-',endtime[3]))# create date object from end date
   dtstot <- seq(startyr, endyr, by = tres[tempRes])
 
   out <- br
@@ -469,4 +406,75 @@ maskAOI <- function(fmask, ext){
   fmask[aoi == 0] <- 0# set all values of the mask layer outside the area of interest to 0
   return(fmask)
 }
+
+#' Title
+#'
+#' @param img_list
+#' @param qai_list
+#' @param fmask
+#' @param lsens
+#' @param ldts
+#' @param tempFun
+#' @param tempRes
+#' @param starttime
+#' @param endtime
+#'
+#' @return
+#' @export
+#' @import lubridate
+#' @import terra
+#'
+#' @examples
+prepareNBRstack <- function(img_list, qai_list, fmask, lsens, ldts, tempFun, tempRes, startdt, enddt){
+  img_list <- img_list[(ldts >= startdt) & (ldts <= enddt)]
+  qai_list <- qai_list[(ldts >= startdt) & (ldts <= enddt)]
+  lsens <- lsens[(ldts >= startdt) & (ldts <= enddt)]
+  ldts <- ldts[(ldts >= startdt) & (ldts <= enddt)]
+
+  for(i in 1:length(img_list)){# iterate over the BOA layers (each layer is associated with a particular date)
+    # open image
+    im <- img_list[[i]]#rast(file.path(tilefolder,img[i]))# load the image with spectral data
+    qaim <- qai_list[[i]]#rast(file.path(tilefolder,gsub("BOA", "QAI", img[i])))# load the Quality Assurance layer
+    # calculate NBR
+    nbri <- switch(1+ ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')), calcNBR(im[[4]], im[[6]]), calcNBR(im[[8]], im[[10]]))
+    # mask low quality data
+    nbrf <- mskQA(nbri, qaim, slope = c(0,1), aero = c(0,1))
+
+    # resample S2 to the spatial resolution of Landsat
+    if ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')){
+      nbrf <- terra::aggregate(nbrf, fact = 3, fun=mmean)
+    }
+    # mask data using forest fire mask
+    nbrf[fmask!=1] <- NA
+    # add image to stack
+    if(i == 1){
+      st <- nbrf
+    }else{
+      st <- c(st, nbrf)
+    }
+    rm(nbri, nbrf, im, qaim)
+  }
+  # assign dates to stack
+  names(st) <- ldts
+
+  # generate a regular image stack
+  if(tempRes == 'monthly'){
+    ldts <- rollback(ldts, roll_to_first = TRUE, preserve_hms = TRUE)
+  }
+  tsbr <- app(c(fmask,st), fun = function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})# tsbr <- calc(stack(fmask,st), function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})#
+  tres <- c('1 month', '3 months', '1 day', '1 year')
+  names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
+
+  dtsbr <- switch(((tempRes == 'quarterly')+1),seq(min(ldts), max(ldts), by = tres[tempRes]),
+    seq(as.Date(paste0(format(min(ldts),'%Y'),'-01-01')), max(ldts), by = tres[tempRes]))
+
+  # make sure that image stack covers time period of interest
+  if(tempRes == 'monthly' || tempRes == 'quarterly'){
+    startdt <- rollback(startdt, roll_to_first = TRUE, preserve_hms = TRUE)
+    endtdt <- rollback(enddt, roll_to_first = TRUE, preserve_hms = TRUE)
+  }
+  tsNBR <- setPeriod(tsbr, startdt, enddt,tempRes, dtsbr)
+
+}
+
 

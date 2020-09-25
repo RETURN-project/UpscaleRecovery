@@ -51,8 +51,8 @@ tempFun <- 'mean'
 tempRes <- 'monthly'
 
 forcefolder <- '/home/wanda/Documents/data/force/'
-starttime <- c(1998,1,01)#start date: year, month, day
-endtime <- c(2018,12,01)#end date: year, month, day
+startyear <- 1998 #start year study period
+endtyear <- 2018 #end year study period
 ext <- c(-43.38238361637443,-43.27938679020256,-4.555765244985907,-4.451717415449725)
 
 # settings recovery indicators
@@ -71,6 +71,9 @@ recSet$seas <- c(T)
 ```{r folders}
 # open folder structure
 fldrs <- setFolders(forcefolder)
+
+starttime <- as.Date(paste0(startyear,'-01-01'))
+endtime <- as.Date(paste0(endyear,'-12-31'))
 ```
 
 ## Prepare optical data
@@ -90,87 +93,41 @@ continents <- continents[continents %in% list.dirs(fldrs[['l2folder']], recursiv
 obsvec <- c(12, 365, 1, 4)
 names(obsvec) <- c('monthly', 'daily', 'annual', 'quart')
         
-
+# loop over grids (one for each continent)
 for(gi in 1:length(continents)){
-  # get the tiles that overlap with the AOI
+  # get the extent of the tiles that overlap with the AOI
   elist <- getGrid(continents[gi], ext)
   # there should at least be one tile to process
   if (length(elist)>0){
-    for(ti in 1:length(elist)){
-      exti <- elist[[ti]]
-      tilename <- names(elist)[ti]
-      # folder with data of interest
-      tilefolder <- file.path(continents[gi], tilename)
+    for(ti in 1:length(elist)){# loop over the tiles
+      exti <- elist[[ti]]# extent of the tile 
+      tilename <- names(elist)[ti]# name of the tile
+      tilefolder <- file.path(continents[gi], tilename)# folder with data of interest
+      
       # check if the tile folder of interest exists
       if(dir.exists(tilefolder)){
-        # generate folder for temporary data of study area of interest
-        extfolder <- file.path(forcefolder, 'temp', paste0('Area', exti[1],'_', exti[2],'_', exti[3],'_', exti[4]))
-        if(!dir.exists(extfolder)){dir.create(extfolder)}
-        # list available Bottom Of Atmosphere files
+        # list available Bottom Of Atmosphere files for the tile of interest
         img <- list.files(tilefolder,pattern = '*_BOA.tif')
+        img_list <- lapply(X = 1:length(img), FUN  = function(i){rast(file.path(tilefolder,img[i]))})# list of rasters with spectral data
+        qai_list <- lapply(X = 1:length(img), FUN  = function(i){rast(file.path(tilefolder,gsub("BOA", "QAI", img[i])))})# list of rasters with quality assurance information
         # extract the dates and sensors of the available data
         prts <- strsplit(img,'_')
-        ldts <- as.Date(unlist(lapply(prts, '[[', 1)),'%Y%m%d')
-        lsens <- unlist(lapply(prts, '[[', 3))
-        fmask <- rast(file.path(tilefolder,'mask.tif'))
+        ldts <- as.Date(unlist(lapply(prts, '[[', 1)),'%Y%m%d')# dates of each image
+        lsens <- unlist(lapply(prts, '[[', 3))# sensor for each image
+        fmask <- rast(file.path(tilefolder,'mask.tif'))# mask layer
         rm(prts)
         
         # mask out area of the tile that is outside the area of interest
-        fmask <- maskAOI(fmask,ext)
-        # prepare each layer
-        prepareNBRstack <- function(){
-          for(i in 1:length(img)){# iterate over the BOA layers (each layer is associated with a particular date)
-          # open image
-          im <- rast(file.path(tilefolder,img[i]))# load the image with spectral data
-          qaim <- rast(file.path(tilefolder,gsub("BOA", "QAI", img[i])))# load the Quality Assurance layer
-          # calculate NBR
-          nbri <- switch(1+ ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')), calcNBR(im[[4]], im[[6]]), calcNBR(im[[8]], im[[10]])) 
-          # mask low quality data
-          nbrf <- mskQA(nbri, qaim, slope = c(0,1), aero = c(0,1))
-          
-          # resample S2 to the spatial resolution of Landsat
-          if ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')){
-            nbrf <- terra::aggregate(nbrf, fact = 3, fun=mean)
-          }
-          # mask data using forest fire mask
-          nbrf[fmask!=1] <- NA
-          # add image to stack
-          if(i == 1){
-            st <- nbrf
-          }else{
-            st <- c(st, nbrf)
-          }
-          rm(nbri, nbrf, im, qaim)
-        }
-        # assign dates to stack
-        names(st) <- ldts
+        fmask <- maskAOI(fmask,ext)# update mask with area of interest
+        # prepare each image layer (quality screening, calculation of NBR, spatial aggregation, and stacking)
+        tsNBR <- prepareNBRstack(img_list, qai_list, fmask, lsens, ldts, tempFun, tempRes, starttime, endtime)
         
-        # generate a regular image stack
-        tsbr <- calc(stack(fmask,st), function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})#
-        tres <- c('1 month', '3 months', '1 day', '1 year')
-        names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
-        dtsbr <- seq(min(ldts), max(ldts), by = tres[tempRes])
-        if(temRes == 'monthly'){
-          dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
-        }
-        
-        # make sure that image stack covers time period of interest
-        tsNBR <- setPeriod(br, starttime, endtime,tempRes, dtsbr)
-        
-        }
-        
-        tsNBR <- prepareNBRstack()
-        
-        # load fire data
-        fimg <- list.files(tilefolder,'fire_X')
-        tsf <- rast(file.path(tilefolder,fimg))
-        # assign dates to stack
-        dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')
-        names(tsf) <- dtsfr
-        # make sure that image stack covers time period of interest
-        tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr)
-        
-        
+        # prepare fire data
+        fimg <- list.files(tilefolder,'fire_X')#list of all fire data
+        tsf <- rast(file.path(tilefolder,fimg))#generate rire raster object
+        dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')#dates of the fire data
+        names(tsf) <- dtsfr# assign dates to stack
+        tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr) #make sure that image stack covers time period of interest
         # combine mask, fire and nbr stacks into one stack 
         st <- c(fmask, tsFire, tsNBR) 
         
