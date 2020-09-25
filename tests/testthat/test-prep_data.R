@@ -56,9 +56,9 @@ test_that("Mask using QA values",{
   library(terra)
   empty_rast <- rast(nrows = 3, ncols = 4)
   im <- empty_rast; values(im) <- 1:12
-  qaim <- empty_rast; values(qaim) <- c(0, 1, 4, 9, 11, 12, 128, 132, 966, 8192, 8324, 28795)
+  qaim <- empty_rast; values(qaim) <- c(0, 1, 4, 9, 11, 12, 8256, 64, 966, 8192, 8324, 28795)
   mskd <- mskQA(im, qaim, valid = 0, cloud = c(0,1), shadow = 0, snow = 0, water = 0, aero = c(0,1), subzero = 0, sat = 0, sunZen = 0, illum = 0, slope = c(0,1), wvp = 0)
-  exp <- c(1,NA,3,NA,NA,NA,7,8,NA,10,11,NA)
+  exp <- c(1,NA,NA,NA,NA,NA,7,8,NA,10,NA,NA)
   expect_equal(as.numeric(mskd[,]), exp)
 })
 

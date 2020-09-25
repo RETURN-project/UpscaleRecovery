@@ -55,6 +55,7 @@ test_that("Generate FORCE folder structure", {
 })
 
 test_that("Mask raster values outside area of interest", {
+  library(rgdal)
   r_empty <- terra::rast(ncol=360, nrow=180)
   m <- r_empty; values(m) <- 1:(360*180)
   ext <- c(-60.4,30.4,-10.2,15.6)

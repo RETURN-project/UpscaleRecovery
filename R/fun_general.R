@@ -391,6 +391,7 @@ setPeriod <- function(br, startyr, endyr,tempRes, dtsbr){
 #' @return terra raster layer
 #' @export
 #' @import terra
+#' @import rgdal
 #'
 maskAOI <- function(fmask, ext){
   # first generate a raster with value 0 outside the area of interest and 1 inside the area of interest
