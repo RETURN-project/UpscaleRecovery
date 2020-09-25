@@ -9,13 +9,13 @@ setPeriod(br, startyr, endyr, tempRes, dtsbr)
 \arguments{
 \item{br}{terra raster stack}
 
+\item{startyr}{start date of the desired time span (Date object)}
+
+\item{endyr}{end date of the desired time span (Date object)}
+
 \item{tempRes}{temporal resolution of the raster stack}
 
 \item{dtsbr}{vector of dates (Date object) associated with the raster stack}
-
-\item{starttime}{start date of the desired time span (Date object)}
-
-\item{endtime}{end date of the desired time span (Date object)}
 }
 \value{
 terra raster stack with adjusted time span

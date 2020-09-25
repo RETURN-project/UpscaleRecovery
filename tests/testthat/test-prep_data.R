@@ -103,6 +103,8 @@ test_that("dense to annual with varying intra-annual selection period", {
 test_that("Temporal aggregation", {
   library(terra)
   library(lubridate)
+  library(zoo)
+  library(bfast)
   # mask
   empty_rast <- rast(ncol=3, nrow=3)
   m <- empty_rast; values(m) <- c(1,1,0,1,1,1,1,1,1)
@@ -146,8 +148,8 @@ test_that("Temporal aggregation", {
   brday <- app(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'daily')})
   names(brday) <- date_decimal(as.numeric(time(bfastts(rep(1,length(dts)), dts, type = "irregular"))))
   # create quarterly time series
-  brquart <- app(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'quart')})
-  names(brquart) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'quart'))
+  brquart <- app(st, function(x){toRegularTSStack(x, dts, fun = 'max', resol = 'quarterly')})
+  names(brquart) <- as.Date(toRegularTS(dts, dts, fun = 'mean', resol = 'quarterly'))
 
   # case 1 - monthly max
   expect_equal(as.numeric(brmomax[1,][1,]), c(2,20,30,-2,-11,-10,-9,-8,-7,-66,NA,-6), tolerance = 1e-4)

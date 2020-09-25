@@ -36,9 +36,9 @@ prepareNBRstack(
 
 \item{tempRes}{temporal resolution of interest ('daily', 'quarterly', 'monthly' or 'yearly')}
 
-\item{starttime}{start date (Date object) of study period}
+\item{startdt}{start date (Date object) of study period}
 
-\item{endtime}{end date (Date object) of study period}
+\item{enddt}{end date (Date object) of study period}
 }
 \value{
 

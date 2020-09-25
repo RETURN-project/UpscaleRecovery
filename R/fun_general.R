@@ -342,8 +342,8 @@ BinToDec <- function(x){
 #' Fix the time span of a multi-temporal raster stack to a user defined time window
 #'
 #' @param br terra raster stack
-#' @param starttime start date of the desired time span (Date object)
-#' @param endtime end date of the desired time span (Date object)
+#' @param startyr start date of the desired time span (Date object)
+#' @param endyr end date of the desired time span (Date object)
 #' @param tempRes temporal resolution of the raster stack
 #' @param dtsbr vector of dates (Date object) associated with the raster stack
 #'
@@ -421,8 +421,8 @@ maskAOI <- function(fmask, ext){
 #' @param ldts dates (Date object) associated with the images
 #' @param tempFun function used to temporally aggregate time series (mean or max)
 #' @param tempRes temporal resolution of interest ('daily', 'quarterly', 'monthly' or 'yearly')
-#' @param starttime start date (Date object) of study period
-#' @param endtime end date (Date object) of study period
+#' @param startdt start date (Date object) of study period
+#' @param enddt end date (Date object) of study period
 #'
 #' @return
 #' @export
