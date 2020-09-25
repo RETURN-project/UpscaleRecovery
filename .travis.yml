@@ -5,3 +5,15 @@ r_packages:
   - covr
 after_success:
   - Rscript -e 'library(covr); codecov()'
+
+# Skip tests
+# r_check_args: '--no-tests --no-examples'
+
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:ubuntugis/ubuntugis-unstable'
+    packages:
+      - libproj-dev
+      - libgeos-dev
+      - libgdal-dev
