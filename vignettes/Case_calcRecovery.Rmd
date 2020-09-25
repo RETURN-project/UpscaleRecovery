@@ -137,7 +137,7 @@ for(gi in 1:length(continents)){
           # get the correct number of observations per year 
           obspyr = obsvec[tempRes]
           # calculate the recovery indicators 
-          out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=recSet$maxBreak[i], 
+          out <- app(st, function(x){calcRecoveryStack(x, maxBreak=recSet$maxBreak[i], 
                                                         obspyr=obspyr, 
                                                         inp = recSet$inp[i], 
                                                         shortDenseTS = recSet$shortDenseTS[i], 

@@ -263,18 +263,14 @@ calcRecoveryStack <- function(st, maxBreak, obspyr, inp = 'segmented', shortDens
                               nPre = 2, nDist = 12, nPostMin = 4, nPostMax = 6, h = 0.15, timeThres, seas) {
 
   # only consider time series with a mask value of 1
-  msk <- (st[,1] == 1)
-  st <- st[,-1]
-  out <- matrix(NA, length(msk), 6)
-  if(sum(msk)>1){
-    out[msk,] <- t(apply(st[msk,], 1, calcRecoveryTS, maxBreak=maxBreak, obspyr=obspyr, inp=inp, shortDenseTS=shortDenseTS,
-                         nPre=nPre, nDist=nDist, nPostMin=nPostMin, nPostMax=nPostMax, h=h, timeThres, seas))
-  }
-  if(sum(msk)==1){
-    out[msk,] <- calcRecoveryTS(st[msk,], maxBreak, obspyr, inp, shortDenseTS,
-                              nPre, nDist, nPostMin, nPostMax, h, timeThres, seas)
-  }
-  out
+  msk <- st[1]
+  msk[is.na(msk)] = 0
+  st <- st[-1]
+  out <- rep(NA, 6)
+  if(msk==1){
+    out <- calcRecoveryTS(st, maxBreak, obspyr, inp, shortDenseTS,
+                              nPre, nDist, nPostMin, nPostMax, h, timeThres, seas)  }
+  return(out)
 }
 
 # toAnnualStack <- function(){
