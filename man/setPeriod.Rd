@@ -4,21 +4,21 @@
 \alias{setPeriod}
 \title{Fix the time span of a multi-temporal raster stack to a user defined time window}
 \usage{
-setPeriod(br, starttime, endtime, tempRes, dtsbr)
+setPeriod(br, startyr, endyr, tempRes, dtsbr)
 }
 \arguments{
-\item{br}{raster stack}
-
-\item{starttime}{start date of the desired time span (given as a numeric vector containing the year, month and day)}
-
-\item{endtime}{end date of the desired time span (given as a numeric vector containing the year, month and day)}
+\item{br}{terra raster stack}
 
 \item{tempRes}{temporal resolution of the raster stack}
 
 \item{dtsbr}{vector of dates (Date object) associated with the raster stack}
+
+\item{starttime}{start date of the desired time span (Date object)}
+
+\item{endtime}{end date of the desired time span (Date object)}
 }
 \value{
-raster stack with adjusted time span
+terra raster stack with adjusted time span
 }
 \description{
 Fix the time span of a multi-temporal raster stack to a user defined time window
