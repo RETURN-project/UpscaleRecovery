@@ -20,7 +20,9 @@ Imports: bfast,
          sde,
          zoo,
          terra,
-         plyr
+         plyr,
+         raster,
+         sp
 Suggests: testthat,
           knitr,
           rmarkdown,
