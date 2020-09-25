@@ -407,17 +407,22 @@ maskAOI <- function(fmask, ext){
   return(fmask)
 }
 
-#' Title
+#' Prepare NBR stack
+#' - crop temporal extent to study period
+#' - mask low quality observations using QAI
+#' - calculate NBR
+#' - aggregate Sentinel-2 to Landsat resolution
+#' - aggregate observations to temporal resolution of interest
 #'
-#' @param img_list
-#' @param qai_list
-#' @param fmask
-#' @param lsens
-#' @param ldts
-#' @param tempFun
-#' @param tempRes
-#' @param starttime
-#' @param endtime
+#' @param img_list list of terra rasters with spectral information
+#' @param qai_list list of terra rasters with quality assurance information
+#' @param fmask terra raster with a processing mask (0 = not processed, 1 = to be processed)
+#' @param lsens the sensor types associated with the images ()
+#' @param ldts dates (Date object) associated with the images
+#' @param tempFun function used to temporally aggregate time series (mean or max)
+#' @param tempRes temporal resolution of interest ('daily', 'quarterly', 'monthly' or 'yearly')
+#' @param starttime start date (Date object) of study period
+#' @param endtime end date (Date object) of study period
 #'
 #' @return
 #' @export
@@ -470,11 +475,30 @@ prepareNBRstack <- function(img_list, qai_list, fmask, lsens, ldts, tempFun, tem
 
   # make sure that image stack covers time period of interest
   if(tempRes == 'monthly' || tempRes == 'quarterly'){
-    startdt <- rollback(startdt, roll_to_first = TRUE, preserve_hms = TRUE)
+    if (tempRes == 'monthly'){
+      startdt <- rollback(startdt, roll_to_first = TRUE, preserve_hms = TRUE)
+    }else if (tempRes == 'quarterly'){
+      startdt <- rollback_quart(startdt)
+      }
     endtdt <- rollback(enddt, roll_to_first = TRUE, preserve_hms = TRUE)
   }
   tsNBR <- setPeriod(tsbr, startdt, enddt,tempRes, dtsbr)
 
 }
 
-
+#' Rollback dates to first day of quarterly series
+#'
+#' @param dts dates to be converted (date object)
+#'
+#' @return date object
+#' @export
+#' @import plyr
+#'
+rollback_quart <- function(dts){
+  mnths <- revalue(format(dts, '%m'), c("01" = "01", "02" = "01", "03" = "01",
+                                        "04" = "04", "05" = "04", "06" = "04",
+                                        "06" = "06", "08" = "07", "09" = "07",
+                                        "10" = "10", "11" = "10", "12" = "10"))
+  out <- as.Date(paste0(format(dts,'%Y'),'-',mnths,'-01'))
+  return(out)
+}

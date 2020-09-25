@@ -2,7 +2,12 @@
 % Please edit documentation in R/fun_general.R
 \name{prepareNBRstack}
 \alias{prepareNBRstack}
-\title{Title}
+\title{Prepare NBR stack
+- crop temporal extent to study period
+- mask low quality observations using QAI
+- calculate NBR
+- aggregate Sentinel-2 to Landsat resolution
+- aggregate observations to temporal resolution of interest}
 \usage{
 prepareNBRstack(
   img_list,
@@ -17,11 +22,32 @@ prepareNBRstack(
 )
 }
 \arguments{
-\item{endtime}{}
+\item{img_list}{list of terra rasters with spectral information}
+
+\item{qai_list}{list of terra rasters with quality assurance information}
+
+\item{fmask}{terra raster with a processing mask (0 = not processed, 1 = to be processed)}
+
+\item{lsens}{the sensor types associated with the images ()}
+
+\item{ldts}{dates (Date object) associated with the images}
+
+\item{tempFun}{function used to temporally aggregate time series (mean or max)}
+
+\item{tempRes}{temporal resolution of interest ('daily', 'quarterly', 'monthly' or 'yearly')}
+
+\item{starttime}{start date (Date object) of study period}
+
+\item{endtime}{end date (Date object) of study period}
 }
 \value{
 
 }
 \description{
-Title
+Prepare NBR stack
+- crop temporal extent to study period
+- mask low quality observations using QAI
+- calculate NBR
+- aggregate Sentinel-2 to Landsat resolution
+- aggregate observations to temporal resolution of interest
 }

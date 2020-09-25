@@ -19,7 +19,8 @@ Imports: bfast,
          lubridate,
          sde,
          zoo,
-         terra
+         terra,
+         plyr
 Suggests: testthat,
           knitr,
           rmarkdown,

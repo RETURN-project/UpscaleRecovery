@@ -64,3 +64,10 @@ test_that("Mask raster values outside area of interest", {
   expect_equal(as.numeric(out[,125]>0),c(rep(0,74),rep(1,26),rep(0,80)))
   expect_equal(as.numeric(out[90,]>0),c(rep(0,120),rep(1,90),rep(0,150)))
 })
+
+test_that("Rollback observations to quarterly frequency", {
+  dts <- as.Date(c('2000-02-01','2000-05-01','2000-04-08','2000-09-20'))
+  val <- rollback_quart(dts)
+  exp <- as.Date(c('2000-01-01','2000-04-01','2000-04-01','2000-07-01'))
+  expect_equal(val, exp)
+})
