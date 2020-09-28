@@ -22,6 +22,8 @@ library(UpscaleRecovery)
 library(bfast)
 library(strucchange)
 library(lubridate)
+library(terra)
+library(rgdal)
 ```
 
 ## Inputs
@@ -47,13 +49,13 @@ The following inputs are needed:
 ```{r}
 tempFun <- 'mean'
 tempRes <- 'monthly'
+
 forcefolder <- '/home/wanda/Documents/data/force/'
-l2folder <- 'level2/s-america/X0058_Y0025/'
-starttime <- c(1998,1,01)#start date: year, month, day
-endtime <- c(2018,12,01)#end date: year, month, day
+startyear <- 1998 #start year study period
+endtyear <- 2018 #end year study period
+ext <- c(-43.38238361637443,-43.27938679020256,-4.555765244985907,-4.451717415449725)
 
 # settings recovery indicators
-
 recSet <- data.frame(maxBreak = c(F))
 recSet$inp <- c('segmented')
 recSet$shortDenseTS <- F
@@ -64,7 +66,14 @@ recSet$nPostMax <- c(6)
 recSet$h <- c(0.15)
 recSet$timeThres <- c(1)
 recSet$seas <- c(T)
+```
 
+```{r folders}
+# open folder structure
+fldrs <- setFolders(forcefolder)
+
+starttime <- as.Date(paste0(startyear,'-01-01'))
+endtime <- as.Date(paste0(endyear,'-12-31'))
 ```
 
 ## Prepare optical data
@@ -77,49 +86,93 @@ recSet$seas <- c(T)
 - Temporal aggregation of data to ensure regular time steps
 - ensure that the stack covers the time period of interest
 ```{r}
-# list available Bottom Of Atmosphere files
-img <- list.files(file.path(forcefolder,l2folder),'*_BOA.tif')
+# get list of directories per continent that are present in the cube
+continents <- file.path(fldrs[['l2folder']],c('n-america', 's-america', 'europe', 'asia', 'africa', 'oceania', 'antartica'))
+continents <- continents[continents %in% list.dirs(fldrs[['l2folder']], recursive = F)]
 
-# extract the dates and sensors of the available data
-prts <- strsplit(img,'_')
-ldts <- as.Date(unlist(lapply(prts, '[[', 1)),'%Y%m%d')
-lsens <- unlist(lapply(prts, '[[', 3))
-fmask <- raster(file.path(forcefolder,l2folder,'mask.tif'))
-rm(prts)
-
-# 
-for(i in 1:length(img)){
-  # open image
-  im <- stack(file.path(forcefolder,l2folder,img[i]))# load the image with spectral data
-  qaim <- raster(file.path(forcefolder,l2folder,gsub("BOA", "QAI", img[i])))# load the Quality Assurance layer
-  # calculate NBR
-  nbri <- switch(1+ ((lsens[i] == 'SEN2A') | (lsens[i] == 'SEN2B')), calcNBR(im[[4]], im[[6]]), calcNBR(im[[8]], im[[10]])) 
-  # mask low quality data
-  nbrf <- mskQA(nbri, qaim, slope = c(0,1), aero = c(0,1))
-  # mask data using forest fire mask
-  nbrf[fmask!=1] <- NA
-  # add image to stack
-  if(i == 1){
-    st <- nbrf
-  }else{
-    st <- addLayer(st, nbrf)
+obsvec <- c(12, 365, 1, 4)
+names(obsvec) <- c('monthly', 'daily', 'annual', 'quart')
+        
+# loop over grids (one for each continent)
+for(gi in 1:length(continents)){
+  # get the extent of the tiles that overlap with the AOI
+  elist <- getGrid(continents[gi], ext)
+  # there should at least be one tile to process
+  if (length(elist)>0){
+    for(ti in 1:length(elist)){# loop over the tiles
+      exti <- elist[[ti]]# extent of the tile 
+      tilename <- names(elist)[ti]# name of the tile
+      tilefolder <- file.path(continents[gi], tilename)# folder with data of interest
+      
+      # check if the tile folder of interest exists
+      if(dir.exists(tilefolder)){
+        # list available Bottom Of Atmosphere files for the tile of interest
+        img <- list.files(tilefolder,pattern = '*_BOA.tif')
+        img_list <- lapply(X = 1:length(img), FUN  = function(i){rast(file.path(tilefolder,img[i]))})# list of rasters with spectral data
+        qai_list <- lapply(X = 1:length(img), FUN  = function(i){rast(file.path(tilefolder,gsub("BOA", "QAI", img[i])))})# list of rasters with quality assurance information
+        # extract the dates and sensors of the available data
+        prts <- strsplit(img,'_')
+        ldts <- as.Date(unlist(lapply(prts, '[[', 1)),'%Y%m%d')# dates of each image
+        lsens <- unlist(lapply(prts, '[[', 3))# sensor for each image
+        fmask <- rast(file.path(tilefolder,'mask.tif'))# mask layer
+        rm(prts)
+        
+        # mask out area of the tile that is outside the area of interest
+        fmask <- maskAOI(fmask,ext)# update mask with area of interest
+        # prepare each image layer (quality screening, calculation of NBR, spatial aggregation, and stacking)
+        tsNBR <- prepareNBRstack(img_list, qai_list, fmask, lsens, ldts, tempFun, tempRes, starttime, endtime)
+        
+        # prepare fire data
+        fimg <- list.files(tilefolder,'fire_X')#list of all fire data
+        tsf <- rast(file.path(tilefolder,fimg))#generate rire raster object
+        dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')#dates of the fire data
+        names(tsf) <- dtsfr# assign dates to stack
+        tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr) #make sure that image stack covers time period of interest
+        # combine mask, fire and nbr stacks into one stack 
+        st <- c(fmask, tsFire, tsNBR) 
+        
+        # Calculate recovery indicators 
+        # Three recovery indicators are computed: the RRI, R80P, and YrYr 
+        for(i in 1:dim(recSet)[1]){# iterate over the settings to derive the recovery indicators 
+          # get the correct number of observations per year 
+          obspyr = obsvec[tempRes]
+          # calculate the recovery indicators 
+          out <- app(st, function(x){calcRecoveryStack(x, maxBreak=recSet$maxBreak[i], 
+                                                        obspyr=obspyr, 
+                                                        inp = recSet$inp[i], 
+                                                        shortDenseTS = recSet$shortDenseTS[i], 
+                                                        nPre = recSet$nPre[i], 
+                                                        nDist = recSet$nDist[i], 
+                                                        nPostMin = recSet$nPostMin[i], 
+                                                        nPostMax = recSet$nPostMax[i], 
+                                                        h = recSet$h[i], 
+                                                        timeThres = recSet$timeThres, 
+                                                        seas = recSet$seas)}, 
+                      filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_', 
+                                        recSet$maxBreak[i],'_', 
+                                        recSet$obspyr[i], '_',
+                                        recSet$inp[i], '_', 
+                                        recSet$shortDenseTS[i], '_',  
+                                        recSet$nPre[i], '_', 
+                                        recSet$nDist[i], '_', 
+                                        recSet$nPostMin[i], '_' ,
+                                        recSet$nPostMax[i], '_', 
+                                        recSet$h[i]*100, '_', 
+                                        recSet$timeThres[i], '_', 
+                                        recSet$seas[i]),
+                      overwrite=TRUE)
+          
+        }
+        end_time_rec <- Sys.time()
+        
+      }
+      
+    }
   }
-  rm(nbri, nbrf, im, qaim)
-}
-# assign dates to stack
-names(st) <- ldts
-
-# generate a regular image stack
-tsbr <- calc(stack(fmask,st), function(x){toRegularTSStack(x, ldts, fun = tempFun, resol = tempRes)})#
-tres <- c('1 month', '3 months', '1 day', '1 year')
-names(tres) <- c('monthly', 'quarterly', 'daily', 'yearly')
-dtsbr <- seq(min(ldts), max(ldts), by = tres[tempRes])
-if(temRes == 'monthly'){
-  dtsbr <- rollback(dtsbr, roll_to_first = TRUE, preserve_hms = TRUE)
+  # 
+  
 }
 
-# make sure that image stack covers time period of interest
-tsNBR <- setPeriod(br, starttime, endtime,tempRes, dtsbr)
 ```
 
 ## Prepare the fire data
@@ -128,55 +181,10 @@ tsNBR <- setPeriod(br, starttime, endtime,tempRes, dtsbr)
 - make sure the data cover the time period of interest
 
 ```{r}
-# load fire data
-fimg <- list.files(file.path(forcefolder,l2folder),'fire_X')
-tsf <- stack(file.path(forcefolder,l2folder,fimg))
-# assign dates to stack
-dtsfr <- as.Date(fimg,'fire_X%Y_%m_%d.tif')
-names(tsf) <- dtsfr
-# make sure that image stack covers time period of interest
-tsFire <- setPeriod(tsf, starttime, endtime,tempRes, dtsfr)
+
 ```
 
 ## Calculate recovery indicators
 ```{r}
-# combine mask, fire and nbr stacks into one stack 
- st <- stack(fmask, tsFire, tsNBR) 
- obsvec <- c(12, 365, 1, 4)
- names(obsvec) <- c('monthly', 'daily', 'annual', 'quart')
- 
-# Calculate recovery indicators 
-# Three recovery indicators are computed: the RRI, R80P, and YrYr 
-for(i in 1:dim(recSet)[1]){# iterate over the settings to derive the recovery indicators 
-  # get the correct number of observations per year 
-  obspyr = obsvec[tempRes]
-  # calculate the recovery indicators 
-  out <- calc(st, function(x){calcRecoveryStack(x, maxBreak=recSet$maxBreak[i], 
-                                                obspyr=obspyr, 
-                                                inp = recSet$inp[i], 
-                                                shortDenseTS = recSet$shortDenseTS[i], 
-                                                nPre = recSet$nPre[i], 
-                                                nDist = recSet$nDist[i], 
-                                                nPostMin = recSet$nPostMin[i], 
-                                                nPostMax = recSet$nPostMax[i], 
-                                                h = recSet$h[i], 
-                                                timeThres = recSet$timeThres, 
-                                                seas = recSet$seas)}, 
-              filename = paste0(ofolder, tsfile, '_Stab_', tempRes, '_', 
-                                recSet$maxBreak[i],'_', 
-                                recSet$obspyr[i], '_',
-                                recSet$inp[i], '_', 
-                                recSet$shortDenseTS[i], '_',  
-                                recSet$nPre[i], '_', 
-                                recSet$nDist[i], '_', 
-                                recSet$nPostMin[i], '_' ,
-                                recSet$nPostMax[i], '_', 
-                                recSet$h[i]*100, '_', 
-                                recSet$timeThres[i], '_', 
-                                recSet$seas[i]),
-              overwrite=TRUE)
-
-}
-end_time_rec <- Sys.time()
 
 ```

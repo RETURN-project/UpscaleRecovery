@@ -18,7 +18,12 @@ Imports: bfast,
          strucchange,
          lubridate,
          sde,
-         zoo
+         zoo,
+         terra,
+         plyr,
+         raster,
+         sp,
+         rgdal
 Suggests: testthat,
           knitr,
           rmarkdown,
